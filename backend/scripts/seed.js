@@ -296,8 +296,8 @@ async function seed() {
   // 21. ExamCountdowns (optional User)
   const examDate = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
   const examCountdowns = await ExamCountdown.insertMany([
-    { title: "MDCAT 2025", examDate, isActive: true, createdBy: ids.users[0] },
-    { title: "Mock Test Day", examDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), isActive: true },
+    { title: "MDCAT 2025", subject: "MDCAT", examDate, createdBy: ids.users[0] },
+    { title: "Mock Test Day", subject: "Biology", examDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), createdBy: ids.users[0] },
   ]);
   ids.examCountdowns = examCountdowns.map((ec) => ec._id);
   console.log(`✓ ExamCountdowns: ${examCountdowns.length}`);
