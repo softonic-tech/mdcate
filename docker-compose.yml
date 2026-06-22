@@ -11,10 +11,10 @@
 # Security group: TCP 80, 443 (close 3000/4000/5000 after nginx is live)
 #
 # Quick start:
-#   1. cp .env.docker.example .env  → set domain URLs + secrets
+#   1. cp .env.docker.example .env  → set MONGODB_URI (Atlas) + secrets
 #   2. docker compose up -d --build
 #   3. ./deploy/setup-ssl.sh admin@medprep.study
-#   4. docker compose exec backend node scripts/seed.js --clear  (first deploy)
+#   4. docker compose exec backend node scripts/seed.js --clear  (first deploy only)
 #
 # URLs (after SSL):
 #   https://medprep.study
@@ -23,20 +23,6 @@
 # =============================================================================
 
 services:
-  mongodb:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - medprep
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     restart: unless-stopped
@@ -64,7 +50,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGODB_URI: mongodb://mongodb:27017/medprep-study
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-medprep}:${RABBITMQ_PASSWORD}@rabbitmq:5672
       FRONTEND_URL: ${FRONTEND_URL}
       ADMINPANEL_URL: ${ADMINPANEL_URL}
@@ -76,8 +61,6 @@ services:
     volumes:
       - backend_uploads:/app/uploads
     depends_on:
-      mongodb:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
@@ -159,6 +142,5 @@ networks:
     driver: bridge
 
 volumes:
-  mongo_data:
   rabbitmq_data:
   backend_uploads:
