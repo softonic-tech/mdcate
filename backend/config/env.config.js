@@ -38,7 +38,7 @@ const env = {
   SMTP_PORT: process.env.SMTP_PORT,
   SMTP_USER: process.env.SMTP_USER,
   SMTP_PASS: process.env.SMTP_PASS,
-  FROM_NAME: process.env.FROM_NAME || "MedPrep Pro",
+  FROM_NAME: process.env.FROM_NAME || "medprep.study",
 
   CLOUD_NAME: process.env.CLOUD_NAME,
   CLOUD_KEY: process.env.CLOUD_KEY,
@@ -59,7 +59,24 @@ const env = {
 
   RABBITMQ_URL: process.env.RABBITMQ_URL || "amqp://localhost:5672",
 
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  OPENAI_MODEL: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  OPENAI_WHISPER_MODEL: process.env.OPENAI_WHISPER_MODEL || "whisper-1",
+
   ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+
+  TRIAL_DAYS: process.env.TRIAL_DAYS || "7",
+  BACKEND_URL: process.env.BACKEND_URL,
+
+  JAZZCASH_MERCHANT_ID: process.env.JAZZCASH_MERCHANT_ID,
+  JAZZCASH_PASSWORD: process.env.JAZZCASH_PASSWORD,
+  JAZZCASH_INTEGRITY_SALT: process.env.JAZZCASH_INTEGRITY_SALT,
+  JAZZCASH_SUB_MERCHANT_ID: process.env.JAZZCASH_SUB_MERCHANT_ID,
+  JAZZCASH_CHECKOUT_URL: process.env.JAZZCASH_CHECKOUT_URL,
+
+  EASYPAISA_STORE_ID: process.env.EASYPAISA_STORE_ID,
+  EASYPAISA_HASH_KEY: process.env.EASYPAISA_HASH_KEY,
+  EASYPAISA_CHECKOUT_URL: process.env.EASYPAISA_CHECKOUT_URL,
 };
 
 const REQUIRED = ["MONGODB_URI", "JWT_SECRET"];

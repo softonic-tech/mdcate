@@ -1,15 +1,53 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { createContactMessage, getContactMessages } from "@/api/contact.api";
+import { CONTACT_INFO, CONTACT_SUBJECTS } from "@/constants/contact";
+import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
+import { HelpCircle, Mail, Phone, Headphones } from "lucide-react";
+import PageHeader from "@/components/dashboard/PageHeader";
+import EmptyState from "@/components/dashboard/EmptyState";
+import SectionTitle from "@/components/dashboard/SectionTitle";
+import Modal from "@/components/dashboard/Modal";
+import { CustomSelect } from "@/components/dashboard/CustomSelect";
+
+const METHOD_ICONS = {
+  email: Mail,
+  whatsapp: Phone,
+  "live-chat": Headphones,
+};
+
+function ContactMethod({ method }) {
+  const Icon = METHOD_ICONS[method.id] || Mail;
+
+  return (
+    <div className="profile-tile contact-method">
+      <span className="profile-tile__icon" aria-hidden="true">
+        <Icon size={16} />
+      </span>
+      <div className="profile-tile__content">
+        <span className="profile-tile__label">{method.label}</span>
+        {method.href ? (
+          <a className="profile-tile__value contact-method__link" href={method.href}>
+            {method.value}
+          </a>
+        ) : (
+          <span className="profile-tile__value">{method.value}</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ContactPage() {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([]);
-
+  const [sending, setSending] = useState(false);
   const [form, setForm] = useState({
     email: "",
-    subject: "",
+    subject: CONTACT_SUBJECTS[0],
     message: "",
   });
 
@@ -23,238 +61,143 @@ export default function ContactPage() {
     load();
   }, []);
 
-  const handleSend = async () => {
-    if (!form.email || !form.subject || !form.message)
+  useEffect(() => {
+    if (user?.email) {
+      setForm((prev) => ({ ...prev, email: user.email }));
+    }
+  }, [user?.email]);
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!form.email || !form.subject || !form.message) {
       return toast.error("Fill all fields");
-
+    }
     try {
+      setSending(true);
       await createContactMessage(form);
-
-      toast.success("Message sent ✅");
-
-      setForm({ email: "", subject: "", message: "" });
+      toast.success("Message sent");
+      setForm((prev) => ({
+        ...prev,
+        subject: CONTACT_SUBJECTS[0],
+        message: "",
+      }));
       setOpen(false);
       load();
     } catch {
       toast.error("Failed to send");
+    } finally {
+      setSending(false);
     }
   };
 
   return (
-    <div style={container}>
-      {/* HEADER */}
-      <div style={header}>
-        <h1 style={title}>Support Center</h1>
+    <div className="page-shell study-page">
+      <PageHeader
+        eyebrow={{ icon: HelpCircle, label: "Support" }}
+        title="Support Center"
+        description={CONTACT_INFO.description}
+        actions={
+          <button type="button" className="btn-primary" onClick={() => setOpen(true)}>
+            Contact Support
+          </button>
+        }
+      />
 
-        <button style={primaryBtn} onClick={() => setOpen(true)}>
-          📩 Contact Support
-        </button>
-      </div>
+      <section className="content-card content-card--spaced contact-support">
+        <span className="page-head__eyebrow">{CONTACT_INFO.eyebrow}</span>
+        <h2 className="contact-support__title">{CONTACT_INFO.title}</h2>
+        <div className="profile-tiles contact-support__methods">
+          {CONTACT_INFO.methods.map((method) => (
+            <ContactMethod key={method.id} method={method} />
+          ))}
+        </div>
+      </section>
 
-      {/* MESSAGES */}
-      <div style={{ marginTop: 20 }}>
-        <h3 style={sectionTitle}>Your Messages</h3>
+      <SectionTitle title="Your Messages" />
 
-        {msgs.length === 0 ? (
-          <p style={{ color: "#64748b" }}>No messages yet</p>
-        ) : (
-          <div style={grid}>
-            {msgs.map((m) => (
-              <div key={m._id} style={card}>
-                <div style={row}>
-                  <p style={subject}>{m.subject}</p>
-
-                  <span
-                    style={{
-                      ...badge,
-                      background:
-                        m.status === "resolved"
-                          ? "#065f46"
-                          : "#78350f",
-                    }}
-                  >
-                    {m.status}
-                  </span>
-                </div>
-
-                <p style={msg}>{m.message}</p>
-
-                {m.response && (
-                  <div style={reply}>
-                    💬 {m.response}
-                  </div>
-                )}
+      {msgs.length === 0 ? (
+        <EmptyState
+          icon={HelpCircle}
+          title="No messages yet"
+          description="Send us a message if you need assistance."
+        />
+      ) : (
+        <div className="data-list">
+          {msgs.map((m) => (
+            <div key={m._id} className="panel">
+              <div className="item-card__head-row">
+                <h3 className="panel__title">{m.subject}</h3>
+                <span className={`badge ${m.status === "resolved" ? "badge--success" : "badge--warning"}`}>
+                  {m.status}
+                </span>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* MODAL */}
-      {open && (
-        <div style={overlay}>
-          <div style={modal}>
-            <h2 style={{ marginBottom: 10 }}>Send Message</h2>
-
-            <input
-              placeholder="Email"
-              value={form.email}
-              onChange={(e) =>
-                setForm({ ...form, email: e.target.value })
-              }
-              style={input}
-            />
-
-            <input
-              placeholder="Subject"
-              value={form.subject}
-              onChange={(e) =>
-                setForm({ ...form, subject: e.target.value })
-              }
-              style={input}
-            />
-
-            <textarea
-              placeholder="Your message..."
-              value={form.message}
-              onChange={(e) =>
-                setForm({ ...form, message: e.target.value })
-              }
-              rows={4}
-              style={input}
-            />
-
-            <div style={btnRow}>
-              <button style={cancelBtn} onClick={() => setOpen(false)}>
-                Cancel
-              </button>
-
-              <button style={primaryBtn} onClick={handleSend}>
-                Send
-              </button>
+              <p className="item-card__desc">{m.message}</p>
+              {m.response && (
+                <div className="mcq-feedback mcq-feedback--correct mt-sm">
+                  <strong>Reply</strong>
+                  <p>{m.response}</p>
+                </div>
+              )}
             </div>
-          </div>
+          ))}
         </div>
       )}
+
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Send Message"
+        subtitle={CONTACT_INFO.responseTime}
+        as="form"
+        onSubmit={handleSend}
+        footer={
+          <>
+            <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary" disabled={sending}>
+              {sending ? "Sending…" : "Send"}
+            </button>
+          </>
+        }
+      >
+        <div className="form-group">
+          <label htmlFor="contact-email">Email</label>
+          <input
+            id="contact-email"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="you@example.com"
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="contact-subject">Subject</label>
+          <CustomSelect
+            id="contact-subject"
+            value={form.subject}
+            onChange={(e) => setForm({ ...form, subject: e.target.value })}
+          >
+            {CONTACT_SUBJECTS.map((subject) => (
+              <option key={subject} value={subject}>
+                {subject}
+              </option>
+            ))}
+          </CustomSelect>
+        </div>
+        <div className="form-group">
+          <label htmlFor="contact-message">Message</label>
+          <textarea
+            id="contact-message"
+            rows={5}
+            value={form.message}
+            onChange={(e) => setForm({ ...form, message: e.target.value })}
+            placeholder="How can we help you?"
+            required
+          />
+        </div>
+      </Modal>
     </div>
   );
 }
-
-/* ================= STYLES ================= */
-
-const container = {
-  padding: 24,
-  maxWidth: 900,
-  margin: "0 auto",
-};
-
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const title = {
-  fontSize: 26,
-  fontWeight: 700,
-};
-
-const sectionTitle = {
-  fontSize: 18,
-  fontWeight: 600,
-  marginBottom: 10,
-};
-
-const grid = {
-  display: "grid",
-  gap: 12,
-};
-
-const card = {
-  background: "#1e293b",
-  padding: 14,
-  borderRadius: 10,
-};
-
-const row = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const subject = {
-  fontWeight: 600,
-};
-
-const badge = {
-  padding: "3px 8px",
-  borderRadius: 6,
-  fontSize: 11,
-  color: "#fff",
-};
-
-const msg = {
-  marginTop: 6,
-  color: "#cbd5f5",
-};
-
-const reply = {
-  marginTop: 10,
-  background: "#020617",
-  padding: 8,
-  borderRadius: 6,
-  fontSize: 13,
-};
-
-const primaryBtn = {
-  padding: "8px 16px",
-  borderRadius: 8,
-  background: "#0ea5e9",
-  color: "#fff",
-  border: "none",
-  cursor: "pointer",
-};
-
-const cancelBtn = {
-  padding: "8px 16px",
-  borderRadius: 8,
-  background: "#334155",
-  color: "#fff",
-  border: "none",
-  cursor: "pointer",
-};
-
-const input = {
-  width: "100%",
-  padding: "10px",
-  borderRadius: 8,
-  border: "1px solid #334155",
-  background: "#0f172a",
-  color: "#fff",
-  marginBottom: 10,
-};
-
-const btnRow = {
-  display: "flex",
-  justifyContent: "flex-end",
-  gap: 8,
-};
-
-const overlay = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100%",
-  height: "100%",
-  background: "rgba(0,0,0,0.6)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const modal = {
-  background: "#1e293b",
-  padding: 20,
-  borderRadius: 12,
-  width: 400,
-};

@@ -1,6 +1,6 @@
-# MDCAT Prep Project
+# medprep.study
 
-A full-stack web application for MDCAT exam preparation with authentication, user profiles, and more.
+A full-stack web application for MDCAT exam preparation at [medprep.study](https://medprep.study) — authentication, user profiles, billing, and more.
 
 ## Tech Stack
 

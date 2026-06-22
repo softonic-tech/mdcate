@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, BookOpen, Layers, HelpCircle, ClipboardList,
-  Library, Video, Award, Swords, CalendarHeart, Brain, Zap, CalendarClock,
-  MessageSquare, Bell, BarChart3,
+  Library, Video, Award, Swords, Brain, Zap, CalendarClock,
+  MessageSquare, Bell, BarChart3, CreditCard, Receipt,
 } from "lucide-react";
 
 export const SIDEBAR_LINKS = [
@@ -12,14 +12,16 @@ export const SIDEBAR_LINKS = [
   { label: "Questions", href: "/admin/questions", icon: HelpCircle },
   { label: "Tests", href: "/admin/tests", icon: ClipboardList },
   { label: "Books", href: "/admin/books", icon: Library },
-  { label: "Videos", href: "/admin/videos", icon: Video },
+  { label: "Chapter Videos", href: "/admin/chapter-videos", icon: Video },
+  { label: "Video Summarizer", href: "/admin/videos", icon: Video },
   { label: "Badges", href: "/admin/badges", icon: Award },
   { label: "Challenges", href: "/admin/challenges", icon: Swords },
-  { label: "Counseling", href: "/admin/counseling", icon: CalendarHeart },
   { label: "Mnemonics", href: "/admin/mnemonics", icon: Brain },
   { label: "High-Yield Facts", href: "/admin/high-yield-facts", icon: Zap },
   { label: "Exam Countdowns", href: "/admin/exam-countdowns", icon: CalendarClock },
   { label: "Contact Messages", href: "/admin/contact-messages", icon: MessageSquare },
+  { label: "Pricing Plans", href: "/admin/pricing-plans", icon: CreditCard },
+  { label: "Payments", href: "/admin/payments", icon: Receipt },
   { label: "Notifications", href: "/admin/notifications", icon: Bell },
   { label: "Performance", href: "/admin/performance", icon: BarChart3 },
 ];

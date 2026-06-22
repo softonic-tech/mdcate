@@ -1,6 +1,7 @@
 import { consumeFromQueue, QUEUES } from "../config/rabbitmq.config.js";
 import Notification from "../models/notification.model.js";
 import { emitToUser } from "../websocket/socket.js";
+import { pushUnreadCount } from "../utils/pushUnreadCount.js";
 
 export const startNotificationWorker = async () => {
   await consumeFromQueue(QUEUES.NOTIFICATION, async (data) => {
@@ -15,6 +16,7 @@ export const startNotificationWorker = async () => {
     });
 
     emitToUser(userId, "notification:new", notification);
+    await pushUnreadCount(userId);
   });
 
   console.log("Notification worker started");

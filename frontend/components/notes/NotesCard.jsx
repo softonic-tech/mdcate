@@ -107,8 +107,9 @@ export default function NotesCard({
       {/* ================= MENU ================= */}
       <div className="note-card__menu" ref={menuRef}>
         <button
-          className="menu-btn hover:bg-gray-200 rounded-full p-1 transition"
+          className="menu-btn"
           onClick={() => setOpenMenu((prev) => !prev)}
+          aria-label="Note options"
         >
           <MoreVertical size={18} />
         </button>
@@ -123,7 +124,8 @@ export default function NotesCard({
                 setOpenMenu(false);
               }}
             >
-              👁 View
+              <Eye size={16} />
+              View
             </button>
 
             <button

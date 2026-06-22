@@ -17,10 +17,8 @@ export const deleteNotificationService = async (id) => {
 
 export const getNotificationsService = async (userId, query = {}) => {
   const filter = {
-    $or: [
-      { userId },
-      { userId: null }
-    ]
+    isDeleted: { $ne: true },
+    $or: [{ userId }, { userId: null }],
   };
 
   // optional filter by type
@@ -64,18 +62,20 @@ export const markAsUnreadService = async (userId, notifId) => {
 export const markAllAsReadService = async (userId) => {
   return Notification.updateMany(
     {
+      isDeleted: { $ne: true },
       $or: [{ userId: null }, { userId }],
-      readBy: { $ne: userId }
+      readBy: { $nin: [userId] },
     },
     {
-      $addToSet: { readBy: userId } // better than $push
+      $addToSet: { readBy: userId },
     }
   );
 };
 // Get unread count for a user
 export const getUnreadCountService = async (userId) => {
   return Notification.countDocuments({
+    isDeleted: { $ne: true },
     $or: [{ userId: null }, { userId }],
-    readBy: { $ne: userId }
+    readBy: { $nin: [userId] },
   });
 };

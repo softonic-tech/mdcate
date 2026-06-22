@@ -3,9 +3,16 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { CONTACT_INFO, CONTACT_SUBJECTS } from "@/constants/contact";
+import {
+  useLandingData,
+  formatStat,
+  subjectMeta,
+  mergeLandingSubjects,
+} from "@/hooks/useLandingData";
 
 /* ─────────────────────────────────────────────
-   MEDPREP PRO — Landing Page
+   medprep.study — Landing Page
    Medical Entrance Test Preparation Platform
 ───────────────────────────────────────────── */
 
@@ -46,7 +53,7 @@ function Navbar() {
             </video>
           </div>
           <span className="navbar__logo-text">
-            Med<span className="navbar__logo-accent">Prep</span> Pro
+            medprep<span className="navbar__logo-accent">.study</span>
           </span>
         </Link>
 
@@ -119,13 +126,39 @@ function Navbar() {
 }
 
 // ━━━ Hero Section ━━━
-function Hero() {
-  const [count, setCount] = useState({ students: 0, questions: 0, score: 0 });
+function Hero({ landing }) {
+  const totals = landing?.totals || {};
+  const nextExam = landing?.nextExam;
+  const questionCount = totals.questions || 0;
+  const studentCount = totals.students || 0;
+  const avgPercentile = totals.avgPercentile;
+  const hasStats = studentCount > 0 || questionCount > 0 || avgPercentile > 0;
+
+  const [count, setCount] = useState(() => ({
+    students: studentCount,
+    questions: questionCount,
+    score: avgPercentile || 0,
+  }));
 
   useEffect(() => {
-    const targets = { students: 25000, questions: 85000, score: 97 };
-    const duration = 2000;
-    const steps = 60;
+    const targets = {
+      students: studentCount || 0,
+      questions: questionCount || 0,
+      score: avgPercentile || 0,
+    };
+    if (!targets.students && !targets.questions && !targets.score) return;
+
+    // Cached / instant data — skip count-up animation to avoid flash
+    if (
+      count.students === targets.students &&
+      count.questions === targets.questions &&
+      count.score === targets.score
+    ) {
+      return;
+    }
+
+    const duration = 1200;
+    const steps = 40;
     const interval = duration / steps;
     let step = 0;
     const timer = setInterval(() => {
@@ -140,7 +173,11 @@ function Hero() {
       if (step >= steps) clearInterval(timer);
     }, interval);
     return () => clearInterval(timer);
-  }, []);
+  }, [studentCount, questionCount, avgPercentile]);
+
+  const boards = landing?.boards?.length
+    ? landing.boards.join(", ")
+    : "KPK, Punjab, and Federal";
 
   return (
     <section className="hero">
@@ -170,20 +207,23 @@ function Hero() {
         <div className="hero__content">
           <div className="hero__badge">
             <span className="hero__badge-dot" />
-            2025 MDCAT Preparation — Updated Syllabus
+            {nextExam
+              ? `${nextExam.title} — ${nextExam.daysRemaining} days left`
+              : "MDCAT Preparation — Updated Syllabus"}
           </div>
 
           <h1 className="hero__title">
-            Your Path to
-            <span className="hero__title-highlight"> Medical College</span>
+            Your Path to Medical College
             <br />
             Starts Here
           </h1>
 
           <p className="hero__subtitle">
             The most comprehensive AI-powered platform for MDCAT, NUMS, and
-            medical entrance exam preparation. Practice with 85,000+ MCQs,
-            adaptive mock tests, past papers, and personalized analytics.
+            medical entrance exam preparation. Practice with{" "}
+            {questionCount > 0 ? `${formatStat(questionCount)}+` : "thousands of"} MCQs,
+            adaptive mock tests, past papers, and personalized analytics — aligned
+            with {boards} boards.
           </p>
 
           <div className="hero__actions">
@@ -212,21 +252,23 @@ function Hero() {
           <div className="hero__stats">
             <div className="hero__stat">
               <span className="hero__stat-number">
-                {count.students.toLocaleString()}+
+                {hasStats ? `${count.students.toLocaleString()}+` : "—"}
               </span>
               <span className="hero__stat-label">Active Students</span>
             </div>
             <div className="hero__stat-divider" />
             <div className="hero__stat">
               <span className="hero__stat-number">
-                {count.questions.toLocaleString()}+
+                {hasStats ? `${count.questions.toLocaleString()}+` : "—"}
               </span>
               <span className="hero__stat-label">Practice MCQs</span>
             </div>
             <div className="hero__stat-divider" />
             <div className="hero__stat">
-              <span className="hero__stat-number">{count.score}%</span>
-              <span className="hero__stat-label">Avg. Score Increase</span>
+              <span className="hero__stat-number">
+                {hasStats && avgPercentile > 0 ? `${formatStat(count.score)}%` : "—"}
+              </span>
+              <span className="hero__stat-label">Avg. Test Percentile</span>
             </div>
           </div>
         </div>
@@ -236,7 +278,7 @@ function Hero() {
           <div className="hero__mockup">
             <Image
               src="/images/analytics-dashboard.jpeg"
-              alt="MedPrep Pro Dashboard"
+              alt="medprep.study Dashboard"
               width={600}
               height={420}
               className="hero__mockup-img"
@@ -576,14 +618,27 @@ const features = [
   },
 ];
 
-function Features() {
+function Features({ landing }) {
+  const questionCount = landing?.totals?.questions || 0;
+  const testCount = landing?.totals?.tests || 0;
+
+  const dynamicFeatures = features.map((f, i) => {
+    if (i === 0 && questionCount > 0) {
+      return { ...f, title: `${formatStat(questionCount)}+ MCQ Bank` };
+    }
+    if (i === 1 && testCount > 0) {
+      return { ...f, title: `${formatStat(testCount)}+ Mock Tests` };
+    }
+    return f;
+  });
+
   return (
     <section className="features" id="features">
       <div className="container">
         <div className="section-header">
           <span className="section-tag">Features</span>
           <h2 className="section-title">
-            Everything You Need to <em>Ace</em> Your Exam
+            Everything You Need to Ace Your Exam
           </h2>
           <p className="section-desc">
             From AI-powered learning to comprehensive question banks — we have
@@ -592,7 +647,7 @@ function Features() {
         </div>
 
         <div className="features__grid">
-          {features.map((f, i) => (
+          {dynamicFeatures.map((f, i) => (
             <div
               key={i}
               className="feature-card"
@@ -648,7 +703,7 @@ function HowItWorks() {
         <div className="section-header">
           <span className="section-tag">How It Works</span>
           <h2 className="section-title">
-            From Sign Up to <em>Top Scorer</em>
+            From Sign Up to Top Scorer
           </h2>
           <p className="section-desc">
             Four simple steps to transform your medical entrance exam preparation.
@@ -672,56 +727,73 @@ function HowItWorks() {
 }
 
 // ━━━ Subjects Showcase ━━━
-const subjects = [
-  { name: "Biology", chapters: 42, mcqs: "28,000+", color: "var(--success)", icon: Icons.dna },
-  { name: "Chemistry", chapters: 36, mcqs: "22,000+", color: "var(--sky)", icon: Icons.beaker },
-  { name: "Physics", chapters: 30, mcqs: "18,000+", color: "var(--amber)", icon: Icons.zap },
-  { name: "English", chapters: 20, mcqs: "12,000+", color: "var(--violet)", icon: Icons.penTool },
-  { name: "Logical Reasoning", chapters: 15, mcqs: "5,000+", color: "var(--rose)", icon: Icons.puzzle },
-];
+const SUBJECT_ICONS = {
+  biology: Icons.dna,
+  chemistry: Icons.beaker,
+  physics: Icons.zap,
+  english: Icons.penTool,
+  logic: Icons.puzzle,
+  analytical: Icons.barChart,
+  default: Icons.book,
+};
 
-function Subjects() {
+function Subjects({ landing }) {
+  const subjects = mergeLandingSubjects(landing?.subjects || []);
+  const boards = landing?.boards?.length
+    ? landing.boards.join(", ")
+    : "KPK, Punjab, and Federal";
+
   return (
     <section className="subjects" id="subjects">
       <div className="container">
         <div className="section-header">
           <span className="section-tag">Subjects</span>
           <h2 className="section-title">
-            Complete Coverage, <em>Every</em> Subject
+            Complete Coverage, Every Subject
           </h2>
           <p className="section-desc">
-            Aligned with KPK, Punjab, and Federal boards. Every chapter, every
-            topic, every question type covered.
+            Aligned with {boards} boards. Every chapter, every topic, every
+            question type covered.
           </p>
         </div>
 
         <div className="subjects__grid">
-          {subjects.map((s, i) => (
+          {subjects.map((s, i) => {
+            const meta = subjectMeta(s.name);
+            const icon = SUBJECT_ICONS[meta.key] || SUBJECT_ICONS.default;
+            return (
             <div
-              key={i}
+              key={s._id || s.name}
               className="subject-card"
-              style={{ "--subj-color": s.color, animationDelay: `${i * 100}ms` }}
+              style={{ "--subj-color": meta.color, animationDelay: `${i * 100}ms` }}
             >
-              <div className="subject-card__icon">{s.icon}</div>
+              <div className="subject-card__icon">{icon}</div>
               <h3 className="subject-card__name">{s.name}</h3>
+              {s.board && <p className="subject-card__board">{s.board} board</p>}
               <div className="subject-card__stats">
                 <div className="subject-card__stat">
-                  <span className="subject-card__stat-val">{s.chapters}</span>
+                  <span className="subject-card__stat-val">{s.chapterCount}</span>
                   <span className="subject-card__stat-label">Chapters</span>
                 </div>
                 <div className="subject-card__stat">
-                  <span className="subject-card__stat-val">{s.mcqs}</span>
+                  <span className="subject-card__stat-val">{formatStat(s.questionCount)}</span>
                   <span className="subject-card__stat-label">MCQs</span>
                 </div>
               </div>
               <div className="subject-card__bar">
-                <div className="subject-card__bar-fill" />
+                <div
+                  className="subject-card__bar-fill"
+                  style={{
+                    width: `${Math.min(100, Math.max(8, (s.questionCount / Math.max(...subjects.map((x) => x.questionCount || 1), 1)) * 100))}%`,
+                  }}
+                />
               </div>
-              <a href="#" className="subject-card__link">
-                Explore Chapters →
-              </a>
+              <Link href="/auth/signup" className="subject-card__link">
+                Start practicing →
+              </Link>
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
     </section>
@@ -729,14 +801,16 @@ function Subjects() {
 }
 
 // ━━━ Dashboard Preview ━━━
-function DashboardPreview() {
+function DashboardPreview({ landing }) {
+  const studentCount = landing?.totals?.students || 0;
+
   return (
     <section className="dashboard-preview">
       <div className="container">
         <div className="section-header">
           <span className="section-tag">Analytics</span>
           <h2 className="section-title">
-            Know Exactly Where <em>You Stand</em>
+            Know Exactly Where You Stand
           </h2>
           <p className="section-desc">
             Real-time performance analytics, leaderboards, and AI-powered
@@ -750,7 +824,7 @@ function DashboardPreview() {
               <div className="topbar-dots">
                 <span /><span /><span />
               </div>
-              <span className="topbar-url">app.medpreppro.com/dashboard</span>
+              <span className="topbar-url">app.medprep.study/dashboard</span>
             </div>
             <Image
               src="/images/analytics-dashboard.jpeg"
@@ -767,7 +841,11 @@ function DashboardPreview() {
               <div className="callout__dot" />
               <div className="callout__content">
                 <strong>Leaderboard</strong>
-                <span>Top 10 candidates ranked in real-time</span>
+                <span>
+                  {studentCount > 0
+                    ? `${formatStat(studentCount)}+ students ranked in real-time`
+                    : "Top candidates ranked in real-time"}
+                </span>
               </div>
             </div>
             <div className="callout callout--right">
@@ -868,10 +946,10 @@ function CaseStudies() {
         <div className="section-header">
           <span className="section-tag">See It In Action</span>
           <h2 className="section-title">
-            Case Studies <em>&amp; Demos</em>
+            Case Studies &amp; Demos
           </h2>
           <p className="section-desc">
-            Watch how students use MedPrep Pro to ace their preparation.
+            Watch how students use medprep.study to ace their preparation.
           </p>
         </div>
         <div className="case-studies__grid">
@@ -885,40 +963,66 @@ function CaseStudies() {
 }
 
 // ━━━ Testimonials ━━━
-const testimonials = [
-  {
-    name: "Ayesha Khan",
-    score: "MDCAT Score: 192/200",
-    text: "MedPrep Pro's adaptive testing identified my weak areas in Organic Chemistry. The AI  saved me hours of revision time. I went from scoring 140 to 192!",
-    avatar: "/images/avatars/student-1.jpg",
-  },
-  {
-    name: "Ahmed Raza",
-    score: "NUMS Rank: Top 50",
-    text: "The discussion room and expert counseling sessions were game-changers. Having a community that understood the pressure made all the difference.",
-    avatar: "/images/avatars/student-2.jpg",
-  },
-  {
-    name: "Fatima Malik",
-    score: "MDCAT Score: 188/200",
-    text: "I loved the flashcard system with spaced repetition. The mnemonics library made memorizing complex Biology concepts so much easier. Best platform out there!",
-    avatar: "/images/avatars/student-3.jpg",
-  },
-  {
-    name: "Hassan Ali",
-    score: "ETEA Score: 195/200",
-    text: "The video summarizer is incredible. I'd link my lecture recordings and get instant flashcards and MCQs. It turned passive watching into active learning.",
-    avatar: "/images/avatars/student-4.jpg",
-  },
-];
+function TestimonialAvatar({ name, avatar }) {
+  if (avatar) {
+    return (
+      <Image
+        src={avatar}
+        alt={name}
+        width={48}
+        height={48}
+        className="testimonial-card__avatar"
+      />
+    );
+  }
+  const initials = (name || "?")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <div className="testimonial-card__avatar testimonial-card__avatar--initials" aria-hidden>
+      {initials}
+    </div>
+  );
+}
 
-function Testimonials() {
+function Testimonials({ landing }) {
+  const testimonials = landing?.featuredStudents?.length
+    ? landing.featuredStudents.map((s) => ({
+        name: s.name,
+        score: s.scoreLabel,
+        text: s.quote,
+        avatar: s.avatar,
+      }))
+    : [];
+
   const [active, setActive] = useState(0);
 
   useEffect(() => {
+    if (!testimonials.length) return undefined;
     const t = setInterval(() => setActive((p) => (p + 1) % testimonials.length), 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [testimonials.length]);
+
+  if (!testimonials.length) {
+    return (
+      <section className="testimonials" id="testimonials">
+        <div className="container">
+          <div className="section-header">
+            <span className="section-tag">Success Stories</span>
+            <h2 className="section-title">
+              Join Students on medprep.study
+            </h2>
+            <p className="section-desc">
+              Be among the first to climb the leaderboard and share your success story.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="testimonials" id="testimonials">
@@ -926,7 +1030,7 @@ function Testimonials() {
         <div className="section-header">
           <span className="section-tag">Success Stories</span>
           <h2 className="section-title">
-            Hear From Our <em>Top Scorers</em>
+            Hear From Our Top Scorers
           </h2>
         </div>
 
@@ -941,13 +1045,7 @@ function Testimonials() {
                 &ldquo;{t.text}&rdquo;
               </blockquote>
               <div className="testimonial-card__author">
-                <Image
-                  src={t.avatar}
-                  alt={t.name}
-                  width={48}
-                  height={48}
-                  className="testimonial-card__avatar"
-                />
+                <TestimonialAvatar name={t.name} avatar={t.avatar} />
                 <div>
                   <div className="testimonial-card__name">{t.name}</div>
                   <div className="testimonial-card__score">{t.score}</div>
@@ -973,31 +1071,39 @@ function Testimonials() {
 }
 
 // ━━━ Daily Challenges / Gamification ━━━
-function Challenges() {
+function Challenges({ landing }) {
+  const badgeList = landing?.badges?.length
+    ? landing.badges.map((b) => ({ icon: Icons.award, label: b.name }))
+    : [
+        { icon: Icons.flame, label: "7-Day Streak" },
+        { icon: Icons.trophy, label: "Quiz Master" },
+        { icon: Icons.zap, label: "Speed Demon" },
+        { icon: Icons.brain, label: "Brain Power" },
+        { icon: Icons.target, label: "Perfect Score" },
+        { icon: Icons.book, label: "Bookworm" },
+      ];
+
+  const challengeCount = landing?.totals?.activeChallenges;
+
   return (
-    <section className="challenges">
+    <section className="challenges" id="challenges">
       <div className="container">
         <div className="challenges__inner">
           <div className="challenges__content">
             <span className="section-tag">Daily Challenges</span>
             <h2 className="section-title" style={{ textAlign: "left" }}>
-              Stay Sharp With <em>Daily Battles</em>
+              Stay Sharp With Daily Battles
             </h2>
             <p className="section-desc" style={{ textAlign: "left", maxWidth: "520px" }}>
-              New question sets, flashcard decks, and mini tests released every
-              week. Compete with peers, earn badges, and build unstoppable
-              momentum.
+              {challengeCount != null && challengeCount > 0
+                ? `${challengeCount} active challenge${challengeCount === 1 ? "" : "s"} right now. `
+                : ""}
+              New question sets, flashcard decks, and mini tests released regularly.
+              Compete with peers, earn badges, and build unstoppable momentum.
             </p>
 
             <div className="challenges__badges">
-              {[
-                { icon: Icons.flame, label: "7-Day Streak" },
-                { icon: Icons.trophy, label: "Quiz Master" },
-                { icon: Icons.zap, label: "Speed Demon" },
-                { icon: Icons.brain, label: "Brain Power" },
-                { icon: Icons.target, label: "Perfect Score" },
-                { icon: Icons.book, label: "Bookworm" },
-              ].map((b, i) => (
+              {badgeList.map((b, i) => (
                 <div key={i} className="badge-chip">
                   <span className="badge-chip__icon">{b.icon}</span>
                   <span className="badge-chip__label">{b.label}</span>
@@ -1008,7 +1114,7 @@ function Challenges() {
 
           <div className="challenges__visual">
             <Image
-              src="/images/challenges-preview.png"
+              src="/images/a.png"
               alt="Daily Challenges Preview"
               width={500}
               height={400}
@@ -1021,140 +1127,68 @@ function Challenges() {
   );
 }
 
-// ━━━ Counseling Section ━━━
-function Counseling() {
-  return (
-    <section className="counseling">
-      <div className="container">
-        <div className="counseling__inner">
-          <div className="counseling__visual">
-            <Image
-              src="/images/counseling-session.jpg"
-              alt="Expert Counseling Session"
-              width={500}
-              height={380}
-              className="counseling__img"
-            />
-            <div className="counseling__live-badge">
-              <span className="counseling__live-dot" />
-              Live Sessions Available
-            </div>
-          </div>
-
-          <div className="counseling__content">
-            <span className="section-tag">Counseling Room</span>
-            <h2 className="section-title" style={{ textAlign: "left" }}>
-              Expert Guidance When <em>You Need It Most</em>
-            </h2>
-            <p className="section-desc" style={{ textAlign: "left", maxWidth: "520px" }}>
-              Join live counseling sessions with experienced mentors days before
-              your exam. Get strategies, calm your nerves, and walk into the test
-              center with confidence.
-            </p>
-            <ul className="counseling__list">
-              <li>Pre-exam stress management sessions</li>
-              <li>One-click join with a simple link</li>
-              <li>Expert counselors with medical backgrounds</li>
-              <li>Community support from fellow aspirants</li>
-            </ul>
-            <a href="#" className="btn btn--primary">
-              Learn About Counseling
-            </a>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // ━━━ Pricing ━━━
-const plans = [
-  {
-    name: "Free",
-    price: "0",
-    period: "Forever",
-    desc: "Get started with essential features",
-    features: [
-      "500 MCQs access",
-      "2 Mock Tests / month",
-      "Basic analytics",
-      "Community discussion room",
-      "Daily challenge access",
-    ],
-    cta: "Start Free",
-    popular: false,
-  },
-  {
-    name: "Pro",
-    price: "1,499",
-    period: "/ 3 months",
-    desc: "Everything you need to crack the exam",
-    features: [
-      "Full 85,000+ MCQ bank",
-      "Unlimited mock tests",
-      "Adaptive learning engine",
-      "AI summaries & video summarizer",
-      "Full past papers library",
-      "Advanced analytics dashboard",
-      "Flashcards with spaced repetition",
-      "Offline mode & multi-device sync",
-      "Priority support",
-    ],
-    cta: "Get Pro Access",
-    popular: true,
-  },
-  {
-    name: "Ultimate",
-    price: "2,999",
-    period: "/ 6 months",
-    desc: "Pro features plus expert mentorship",
-    features: [
-      "Everything in Pro",
-      "Live counseling sessions",
-      "1-on-1 expert mentorship",
-      "Personalized study plan",
-      "Exam strategy workshops",
-      "WhatsApp support group",
-      "Score guarantee program",
-    ],
-    cta: "Go Ultimate",
-    popular: false,
-  },
-];
+function Pricing({ plans = [], loadingPlans = false }) {
+  const { user } = useAuth();
 
-function Pricing() {
+  const getCtaHref = (plan) => {
+    if (plan.price <= 0) return "/auth/signup";
+    if (user) return `/dashboard/billing?plan=${plan.slug}`;
+    return `/auth/signup?plan=${plan.slug}`;
+  };
+
+  const getCtaLabel = (plan) => {
+    if (plan.price <= 0) return "Start Free";
+    if (plan.slug === "ultimate") return "Go Ultimate";
+    return "Get Pro Access";
+  };
+
   return (
     <section className="pricing" id="pricing">
       <div className="container">
         <div className="section-header">
           <span className="section-tag">Pricing</span>
           <h2 className="section-title">
-            Invest in Your <em>Future</em>
+            Invest in Your Future
           </h2>
           <p className="section-desc">
-            Affordable plans designed for Pakistani students. Start free,
-            upgrade when ready.
+            Affordable plans designed for Pakistani students. Start with a{" "}
+            <strong>7-day free trial</strong>, upgrade when ready via JazzCash or Easypaisa.
           </p>
         </div>
 
         <div className="pricing__grid">
-          {plans.map((p, i) => (
+          {loadingPlans && plans.length === 0
+            ? Array.from({ length: 3 }, (_, i) => (
+                <div key={i} className="pricing-card pricing-card--skeleton" aria-hidden="true">
+                  <div className="pricing-skeleton__line pricing-skeleton__line--title" />
+                  <div className="pricing-skeleton__line" />
+                  <div className="pricing-skeleton__line pricing-skeleton__line--price" />
+                  <div className="pricing-skeleton__line" />
+                  <div className="pricing-skeleton__line pricing-skeleton__line--short" />
+                </div>
+              ))
+            : (plans.length ? plans : []).map((p) => (
             <div
-              key={i}
-              className={`pricing-card ${p.popular ? "pricing-card--popular" : ""}`}
+              key={p._id || p.slug}
+              className={`pricing-card ${p.isPopular ? "pricing-card--popular" : ""}`}
             >
-              {p.popular && (
+              {p.isPopular && (
                 <div className="pricing-card__badge">Most Popular</div>
               )}
               <h3 className="pricing-card__name">{p.name}</h3>
-              <p className="pricing-card__desc">{p.desc}</p>
+              <p className="pricing-card__desc">{p.description}</p>
               <div className="pricing-card__price">
                 <span className="pricing-card__currency">PKR</span>
-                <span className="pricing-card__amount">{p.price}</span>
-                <span className="pricing-card__period">{p.period}</span>
+                <span className="pricing-card__amount">
+                  {p.price === 0 ? "0" : p.price.toLocaleString()}
+                </span>
+                <span className="pricing-card__period">
+                  {p.periodLabel || (p.price === 0 ? "Forever" : "")}
+                </span>
               </div>
               <ul className="pricing-card__features">
-                {p.features.map((f, j) => (
+                {(p.features || []).map((f, j) => (
                   <li key={j}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                       <path
@@ -1169,12 +1203,12 @@ function Pricing() {
                   </li>
                 ))}
               </ul>
-              <a
-                href="/register"
-                className={`btn btn--full ${p.popular ? "btn--primary" : "btn--outline"}`}
+              <Link
+                href={getCtaHref(p)}
+                className={`btn btn--full ${p.isPopular ? "btn--primary" : "btn--outline"}`}
               >
-                {p.cta}
-              </a>
+                {getCtaLabel(p)}
+              </Link>
             </div>
           ))}
         </div>
@@ -1184,12 +1218,14 @@ function Pricing() {
 }
 
 // ━━━ CTA / Countdown ━━━
-function CtaSection() {
+function CtaSection({ landing }) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
+  const nextExam = landing?.nextExam;
+  const studentCount = landing?.totals?.students || 0;
 
   useEffect(() => {
-    // Set exam date — adjust as needed
-    const examDate = new Date("2025-09-15T09:00:00");
+    if (!nextExam?.examDate) return undefined;
+    const examDate = new Date(nextExam.examDate);
     const tick = () => {
       const diff = examDate.getTime() - Date.now();
       if (diff <= 0) return;
@@ -1203,18 +1239,29 @@ function CtaSection() {
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [nextExam?.examDate]);
 
   return (
     <section className="cta-section">
       <div className="container">
         <div className="cta-section__inner">
           <h2 className="cta-section__title">
-            MDCAT 2025 is Coming.
-            <br />
-            <span>Are You Ready?</span>
+            {nextExam ? (
+              <>
+                {nextExam.title} is Coming.
+                <br />
+                Are You Ready?
+              </>
+            ) : (
+              <>
+                Your Exam is Coming.
+                <br />
+                Are You Ready?
+              </>
+            )}
           </h2>
 
+          {nextExam?.examDate && (
           <div className="cta-section__countdown">
             {[
               { val: timeLeft.days, label: "Days" },
@@ -1230,11 +1277,13 @@ function CtaSection() {
               </div>
             ))}
           </div>
+          )}
 
           <p className="cta-section__text">
-            Every day counts. Join 25,000+ students already preparing with
-            MedPrep Pro and give yourself the best chance at your dream medical
-            college.
+            Every day counts. Join{" "}
+            {studentCount > 0 ? `${formatStat(studentCount)}+` : ""} students already
+            preparing with medprep.study and give yourself the best chance at your
+            dream medical college.
           </p>
 
           <a href="/auth/signup" className="btn btn--primary btn--lg">
@@ -1253,36 +1302,33 @@ function Contact() {
       <div className="container">
         <div className="contact__inner">
           <div className="contact__info">
-            <span className="section-tag">Get In Touch</span>
-            <h2 className="section-title" style={{ textAlign: "left" }}>
-              We&apos;re Here to <em>Help</em>
+            <span className="section-tag">{CONTACT_INFO.eyebrow}</span>
+            <h2 className="section-title">
+              We&apos;re Here to Help
             </h2>
-            <p className="section-desc" style={{ textAlign: "left", maxWidth: "480px" }}>
-              Have questions or facing issues? Our support team is available
-              around the clock to ensure your preparation stays on track.
+            <p className="section-desc">
+              {CONTACT_INFO.description}
             </p>
             <div className="contact__methods">
-              <div className="contact__method">
-                <div className="contact__method-icon">{Icons.mail}</div>
-                <div>
-                  <div className="contact__method-label">Email Us</div>
-                  <div className="contact__method-value">support@medpreppro.com</div>
+              {CONTACT_INFO.methods.map((method) => (
+                <div key={method.id} className="contact__method">
+                  <div className="contact__method-icon">
+                    {method.id === "email" && Icons.mail}
+                    {method.id === "whatsapp" && Icons.phone}
+                    {method.id === "live-chat" && Icons.headphones}
+                  </div>
+                  <div>
+                    <div className="contact__method-label">{method.label}</div>
+                    {method.href ? (
+                      <a className="contact__method-value" href={method.href}>
+                        {method.value}
+                      </a>
+                    ) : (
+                      <div className="contact__method-value">{method.value}</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="contact__method">
-                <div className="contact__method-icon">{Icons.phone}</div>
-                <div>
-                  <div className="contact__method-label">WhatsApp</div>
-                  <div className="contact__method-value">+92 300 1234567</div>
-                </div>
-              </div>
-              <div className="contact__method">
-                <div className="contact__method-icon">{Icons.headphones}</div>
-                <div>
-                  <div className="contact__method-label">Live Chat</div>
-                  <div className="contact__method-value">Available 9 AM – 11 PM</div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -1298,11 +1344,9 @@ function Contact() {
             <div className="form-group">
               <label>Subject</label>
               <select>
-                <option>General Inquiry</option>
-                <option>Technical Support</option>
-                <option>Billing Question</option>
-                <option>Feature Request</option>
-                <option>Report a Bug</option>
+                {CONTACT_SUBJECTS.map((subject) => (
+                  <option key={subject}>{subject}</option>
+                ))}
               </select>
             </div>
             <div className="form-group">
@@ -1320,6 +1364,45 @@ function Contact() {
 }
 
 // ━━━ Footer ━━━
+const FOOTER_LINKS = {
+  platform: [
+    { label: "Features", href: "#features" },
+    { label: "How It Works", href: "#how-it-works" },
+    { label: "Subjects", href: "#subjects" },
+    { label: "Pricing", href: "#pricing" },
+    { label: "Get Started", href: "/auth/signup", internal: true },
+  ],
+  resources: [
+    { label: "MCQ Bank", href: "/dashboard/mcq-bank", internal: true },
+    { label: "Mock Tests", href: "/dashboard/tests", internal: true },
+    { label: "Past Papers", href: "/dashboard/past-papers", internal: true },
+    { label: "Video Summarizer", href: "/dashboard/video-summarizer", internal: true },
+    { label: "Daily Challenges", href: "#challenges" },
+  ],
+  company: [
+    { label: "Contact", href: "#contact" },
+    { label: "Testimonials", href: "#testimonials" },
+    { label: "Demo Videos", href: "#demo" },
+    { label: "Sign In", href: "/auth/login", internal: true },
+    { label: "Email Support", href: CONTACT_INFO.methods[0].href, external: true },
+  ],
+};
+
+function FooterLink({ link }) {
+  if (link.internal) {
+    return <Link href={link.href}>{link.label}</Link>;
+  }
+
+  return (
+    <a
+      href={link.href}
+      {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+    >
+      {link.label}
+    </a>
+  );
+}
+
 function Footer() {
   return (
     <footer className="footer">
@@ -1333,7 +1416,7 @@ function Footer() {
                 </video>
               </div>
               <span className="navbar__logo-text">
-                Med<span className="navbar__logo-accent">Prep</span> Pro
+                medprep<span className="navbar__logo-accent">.study</span>
               </span>
             </Link>
             <p className="footer__tagline">
@@ -1341,44 +1424,51 @@ function Footer() {
               exam preparation platform.
             </p>
             <div className="footer__social">
-              {["Facebook", "Instagram", "YouTube", "Twitter"].map((s) => (
-                <a key={s} href="#" className="footer__social-link" aria-label={s}>
-                  {s[0]}
-                </a>
-              ))}
+              <a
+                href={CONTACT_INFO.methods[0].href}
+                className="footer__social-link"
+                aria-label="Email"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                @
+              </a>
+              <a
+                href={CONTACT_INFO.methods[1].href}
+                className="footer__social-link"
+                aria-label="WhatsApp"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                W
+              </a>
             </div>
           </div>
 
           <div className="footer__col">
             <h4>Platform</h4>
-            <a href="#">MCQ Bank</a>
-            <a href="#">tests</a>
-            <a href="#">Past Papers</a>
-            <a href="#">Books & Notes</a>
-            <a href="#">Flashcards</a>
+            {FOOTER_LINKS.platform.map((link) => (
+              <FooterLink key={link.label} link={link} />
+            ))}
           </div>
 
           <div className="footer__col">
             <h4>Resources</h4>
-            <a href="#">AI Summaries</a>
-            <a href="#">Video Summarizer</a>
-            <a href="#">Mnemonics</a>
-            <a href="#">Daily Challenges</a>
-            <a href="#">Discussion Room</a>
+            {FOOTER_LINKS.resources.map((link) => (
+              <FooterLink key={link.label} link={link} />
+            ))}
           </div>
 
           <div className="footer__col">
             <h4>Company</h4>
-            <a href="#">About Us</a>
-            <a href="#">Careers</a>
-            <a href="#">Blog</a>
-            <a href="#">Contact</a>
-            <a href="#">Privacy Policy</a>
+            {FOOTER_LINKS.company.map((link) => (
+              <FooterLink key={link.label} link={link} />
+            ))}
           </div>
         </div>
 
         <div className="footer__bottom">
-          <p>© 2025 MedPrep Pro. All rights reserved.</p>
+          <p>© 2026 medprep.study. All rights reserved.</p>
           <p>
             Made with 💚 for Pakistan&apos;s future doctors.
           </p>
@@ -1390,20 +1480,24 @@ function Footer() {
 
 // ━━━ Main Page ━━━
 export default function LandingPage() {
+  const { data: landing, loading } = useLandingData();
+
   return (
     <>
       <Navbar />
-      <Hero />
-      <Features />
+      <Hero landing={landing} />
+      <Features landing={landing} />
       <HowItWorks />
-      <Subjects />
-      <DashboardPreview />
+      <Subjects landing={landing} />
+      <DashboardPreview landing={landing} />
       <CaseStudies />
-      <Testimonials />
-      <Challenges />
-      <Counseling />
-      <Pricing />
-      <CtaSection />
+      <Testimonials landing={landing} />
+      <Challenges landing={landing} />
+      <Pricing
+        plans={landing?.pricingPlans || []}
+        loadingPlans={loading && !(landing?.pricingPlans?.length)}
+      />
+      <CtaSection landing={landing} />
       <Contact />
       <Footer />
 
@@ -1765,13 +1859,7 @@ export default function LandingPage() {
           margin-bottom: 20px;
           letter-spacing: -0.03em;
           line-height: 1.15;
-        }
-        .section-title em {
-          font-style: normal;
-          background: linear-gradient(135deg, var(--teal-400) 0%, var(--teal-300) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          word-spacing: normal;
         }
         .section-desc {
           font-family: var(--font-body);
@@ -1877,13 +1965,6 @@ export default function LandingPage() {
           margin-bottom: 28px;
           animation: fadeInUp 0.8s 0.1s var(--ease-out) both;
         }
-        .hero__title-highlight {
-          background: linear-gradient(135deg, var(--teal-400) 0%, var(--teal-300) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          position: relative;
-        }
         .hero__subtitle {
           font-family: var(--font-body);
           font-size: 1.15rem;
@@ -1914,6 +1995,8 @@ export default function LandingPage() {
           color: var(--white);
           display: block;
           letter-spacing: -0.02em;
+          min-width: 4.5ch;
+          font-variant-numeric: tabular-nums;
         }
         .hero__stat-label {
           font-family: var(--font-body);
@@ -2260,8 +2343,15 @@ export default function LandingPage() {
           font-size: 1.15rem;
           font-weight: 700;
           color: var(--white);
-          margin-bottom: 16px;
+          margin-bottom: 8px;
           letter-spacing: -0.01em;
+        }
+        .subject-card__board {
+          font-size: 0.75rem;
+          color: var(--mist);
+          margin-bottom: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
         }
         .subject-card__stats {
           display: flex;
@@ -2502,6 +2592,15 @@ export default function LandingPage() {
           object-fit: cover;
           border: 2px solid var(--steel);
         }
+        .testimonial-card__avatar--initials {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--steel);
+          color: var(--white);
+          font-size: 0.85rem;
+          font-weight: 700;
+        }
         .testimonial-card__name {
           font-family: var(--font-display);
           font-weight: 700;
@@ -2592,72 +2691,6 @@ export default function LandingPage() {
         }
 
         /* ════════════════════════════════════════
-           COUNSELING
-        ════════════════════════════════════════ */
-        .counseling {
-          padding: var(--space-5xl) 0;
-          background: var(--deep-navy);
-        }
-        .counseling__inner {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 60px;
-          align-items: center;
-        }
-        .counseling__visual {
-          position: relative;
-        }
-        .counseling__img {
-          width: 100%;
-          height: auto;
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-xl);
-        }
-        .counseling__live-badge {
-          position: absolute;
-          top: 16px;
-          left: 16px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: rgba(11, 17, 32, 0.85);
-          backdrop-filter: blur(10px);
-          border-radius: var(--radius-full);
-          padding: 8px 16px;
-          font-size: 0.78rem;
-          font-weight: 600;
-          color: var(--white);
-        }
-        .counseling__live-dot {
-          width: 8px;
-          height: 8px;
-          background: var(--coral);
-          border-radius: 50%;
-          animation: pulse 1.5s infinite;
-        }
-        .counseling__list {
-          list-style: none;
-          margin: 20px 0 28px;
-        }
-        .counseling__list li {
-          font-size: 0.95rem;
-          color: var(--mist);
-          padding: 8px 0;
-          padding-left: 24px;
-          position: relative;
-        }
-        .counseling__list li::before {
-          content: '✓';
-          position: absolute;
-          left: 0;
-          color: var(--teal-400);
-          font-weight: 700;
-        }
-        @media (max-width: 768px) {
-          .counseling__inner { grid-template-columns: 1fr; }
-        }
-
-        /* ════════════════════════════════════════
            PRICING
         ════════════════════════════════════════ */
         .pricing {
@@ -2680,6 +2713,42 @@ export default function LandingPage() {
         }
         .pricing-card:hover {
           transform: translateY(-4px);
+        }
+        .pricing-card--skeleton {
+          pointer-events: none;
+        }
+        .pricing-card--skeleton:hover {
+          transform: none;
+        }
+        .pricing-skeleton__line {
+          height: 14px;
+          border-radius: 6px;
+          margin-bottom: 12px;
+          background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.04) 25%,
+            rgba(255, 255, 255, 0.1) 50%,
+            rgba(255, 255, 255, 0.04) 75%
+          );
+          background-size: 200% 100%;
+          animation: landingShimmer 1.2s ease-in-out infinite;
+        }
+        .pricing-skeleton__line--title {
+          height: 22px;
+          width: 55%;
+          margin-bottom: 16px;
+        }
+        .pricing-skeleton__line--price {
+          height: 36px;
+          width: 70%;
+          margin: 20px 0;
+        }
+        .pricing-skeleton__line--short {
+          width: 40%;
+        }
+        @keyframes landingShimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
         }
         .pricing-card--popular {
           border-color: var(--teal);
@@ -2788,12 +2857,6 @@ export default function LandingPage() {
           line-height: 1.15;
           letter-spacing: -0.03em;
         }
-        .cta-section__title span {
-          background: linear-gradient(135deg, var(--teal-400) 0%, var(--teal-300) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
         .cta-section__countdown {
           display: flex;
           justify-content: center;
@@ -2844,6 +2907,17 @@ export default function LandingPage() {
           gap: 60px;
           align-items: start;
         }
+        .contact__info {
+          text-align: left;
+        }
+        .contact__info .section-title {
+          display: block;
+          text-align: left;
+        }
+        .contact__info .section-desc {
+          margin: 0;
+          max-width: 480px;
+        }
         .contact__methods {
           display: flex;
           flex-direction: column;
@@ -2885,6 +2959,13 @@ export default function LandingPage() {
           font-size: 0.95rem;
           font-weight: 600;
           color: var(--white);
+        }
+        a.contact__method-value {
+          text-decoration: none;
+          transition: color 0.2s ease;
+        }
+        a.contact__method-value:hover {
+          color: var(--teal-300);
         }
         .contact__form {
           background: var(--navy);
@@ -3064,8 +3145,6 @@ export default function LandingPage() {
           .challenges { padding: var(--space-4xl) 0; }
           .challenges__inner { grid-template-columns: 1fr; gap: 32px; text-align: center; }
           .challenges__content .section-desc { margin-left: auto; margin-right: auto; }
-          .counseling__inner { grid-template-columns: 1fr; gap: 32px; text-align: center; }
-          .counseling__content .section-desc { margin-left: auto; margin-right: auto; }
           .pricing { padding: var(--space-4xl) 0; }
           .cta-section { padding: var(--space-4xl) 0; }
           .cta-section__title { font-size: clamp(1.5rem, 5vw, 2rem); margin-bottom: 24px; }

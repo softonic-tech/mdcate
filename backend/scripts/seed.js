@@ -38,12 +38,10 @@ import StudyPlan from "../models/studyPlan.model.js";
 import ExamCountdown from "../models/examCountdown.model.js";
 import DiscussionThread from "../models/discussionThread.model.js";
 import DiscussionMessage from "../models/discussionMessage.model.js";
-import CounselingSession from "../models/counselingSession.model.js";
-import CounselingParticipant from "../models/counselingParticipant.model.js";
 import OfflineContent from "../models/offlineContent.model.js";
 import SyncLog from "../models/syncLog.model.js";
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/medprep-pro";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/medprep-study";
 
 const clearFirst = process.argv.includes("--clear");
 
@@ -56,7 +54,7 @@ async function connectDB() {
 
 async function clearCollections() {
   const collections = [
-    SyncLog, OfflineContent, CounselingParticipant, CounselingSession,
+    SyncLog, OfflineContent,
     DiscussionMessage, DiscussionThread, ExamCountdown, StudyPlan,
     Performance, ContactMessage, Device, Notification, ChallengeAttempt,
     Challenge, TestAttempt, Test, HighYieldFact, Mnemonic, Notes,
@@ -271,10 +269,26 @@ async function seed() {
   ids.performances = performances.map((p) => p._id);
   console.log(`✓ Performance: ${performances.length}`);
 
-  // 20. StudyPlans (depends on User - unique per user; subject name must match enum)
+  // 20. StudyPlans (depends on User — multiple plans per user)
   const studyPlans = await StudyPlan.insertMany([
-    { userId: ids.users[0], dailyGoal: 50, subjects: [{ name: "Biology", duration: 60, reminderTime: "09:00" }, { name: "Chemistry", duration: 45 }] },
-    { userId: ids.users[1], dailyGoal: 30, subjects: [{ name: "Physics", duration: 45 }] },
+    {
+      userId: ids.users[0],
+      title: "Complete Biology revision",
+      deadline: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+      status: "pending",
+    },
+    {
+      userId: ids.users[0],
+      title: "Practice Chemistry MCQs",
+      deadline: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+      status: "pending",
+    },
+    {
+      userId: ids.users[1],
+      title: "Physics chapter review",
+      deadline: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000),
+      status: "pending",
+    },
   ]);
   ids.studyPlans = studyPlans.map((sp) => sp._id);
   console.log(`✓ StudyPlans: ${studyPlans.length}`);
@@ -305,24 +319,7 @@ async function seed() {
   ids.discussionMessages = discussionMessages.map((dm) => dm._id);
   console.log(`✓ DiscussionMessages: ${discussionMessages.length}`);
 
-  // 24. CounselingSessions (no deps)
-  const counselingSessions = await CounselingSession.insertMany([
-    { title: "MDCAT Strategy Session", sessionLink: "https://meet.example.com/abc123", expertName: "Dr. Ahmed", scheduledAt: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000), duration: 60, maxParticipants: 50, isActive: true, description: "Tips for MDCAT preparation" },
-    { title: "Stress Management", sessionLink: "https://meet.example.com/xyz456", expertName: "Dr. Sara", scheduledAt: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000), duration: 45, isActive: true },
-  ]);
-  ids.counselingSessions = counselingSessions.map((cs) => cs._id);
-  console.log(`✓ CounselingSessions: ${counselingSessions.length}`);
-
-  // 25. CounselingParticipants (depends on User, CounselingSession)
-  const counselingParticipants = await CounselingParticipant.insertMany([
-    { sessionId: ids.counselingSessions[0], userId: ids.users[0] },
-    { sessionId: ids.counselingSessions[0], userId: ids.users[1] },
-    { sessionId: ids.counselingSessions[1], userId: ids.users[0] },
-  ]);
-  ids.counselingParticipants = counselingParticipants.map((cp) => cp._id);
-  console.log(`✓ CounselingParticipants: ${counselingParticipants.length}`);
-
-  // 26. OfflineContent (depends on User)
+  // 24. OfflineContent (depends on User)
   const offlineContents = await OfflineContent.insertMany([
     { userId: ids.users[0], contentType: "test", contentId: ids.tests[0] },
     { userId: ids.users[0], contentType: "note", contentId: ids.notes[0] },

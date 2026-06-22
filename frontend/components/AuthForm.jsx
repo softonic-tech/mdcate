@@ -179,7 +179,7 @@ export default function AuthForm({
         <div className={styles.right}>
           <img 
             src="/right-side.jpg" 
-            alt="MedPrep Pro" 
+            alt="medprep.study" 
             className={styles.rightImage}
           />
         </div>

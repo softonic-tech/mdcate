@@ -40,6 +40,14 @@ export const chapterService = {
 export const questionService = {
   ...createCrudService("/questions"),
   bulkCreate: (questions) => api.post("/questions/bulk", { questions }).then((r) => r.data),
+  previewFileImport: (formData) =>
+    api
+      .post("/questions/import/preview", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data),
+  confirmFileImport: (payload) =>
+    api.post("/questions/import/confirm", payload).then((r) => r.data),
 };
 
 // ===== TESTS =====
@@ -71,8 +79,11 @@ export const bookService = {
   remove: (id) => api.delete(`/books/${id}`).then((r) => r.data),
 };
 
-// ===== VIDEOS =====
+// ===== VIDEOS (AI summarizer queue) =====
 export const videoService = createCrudService("/videos");
+
+// ===== CHAPTER VIDEOS (book lecture videos on S3) =====
+export const chapterVideoService = createCrudService("/chapter-videos");
 
 // ===== BADGES =====
 export const badgeService = createCrudService("/badges");
@@ -84,9 +95,6 @@ export const challengeService = createCrudService("/challenges");
 export const challengeAttemptService = {
   getAll: () => api.get("/challenge-attempts/all").then((r) => r.data),
 };
-
-// ===== COUNSELING SESSIONS =====
-export const counselingService = createCrudService("/counseling-sessions");
 
 // ===== MNEMONICS =====
 export const mnemonicService = createCrudService("/mnemonics");
@@ -148,4 +156,13 @@ export const testAttemptService = {
 // ===== LEADERBOARD =====
 export const leaderboardService = {
   getTop: (limit = 10) => api.get("/leaderboard/top", { params: { limit } }).then((r) => r.data),
+};
+
+// ===== PRICING PLANS =====
+export const pricingPlanService = createCrudService("/pricing");
+
+// ===== PAYMENTS =====
+export const paymentService = {
+  getAll: () => api.get("/billing/payments").then((r) => r.data),
+  approve: (id) => api.post(`/billing/payments/${id}/approve`).then((r) => r.data),
 };

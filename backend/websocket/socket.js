@@ -30,30 +30,16 @@ export const initSocket = (httpServer) => {
 
     socket.join(`user:${userId}`);
 
+    import("../utils/pushUnreadCount.js")
+      .then(({ pushUnreadCount }) => pushUnreadCount(userId))
+      .catch((err) => console.error("Failed to push unread count on connect:", err));
+
     socket.on("join:thread", (threadId) => {
       socket.join(`thread:${threadId}`);
     });
 
     socket.on("leave:thread", (threadId) => {
       socket.leave(`thread:${threadId}`);
-    });
-
-    socket.on("join:counseling", (sessionId) => {
-      socket.join(`counseling:${sessionId}`);
-      io.to(`counseling:${sessionId}`).emit("participant:joined", { userId });
-    });
-
-    socket.on("leave:counseling", (sessionId) => {
-      socket.leave(`counseling:${sessionId}`);
-      io.to(`counseling:${sessionId}`).emit("participant:left", { userId });
-    });
-
-    socket.on("disconnect", () => {
-      socket.rooms.forEach((room) => {
-        if (room.startsWith("counseling:")) {
-          io.to(room).emit("participant:left", { userId });
-        }
-      });
     });
   });
 
@@ -71,8 +57,4 @@ export const emitToUser = (userId, event, data) => {
 
 export const emitToThread = (threadId, event, data) => {
   if (io) io.to(`thread:${threadId}`).emit(event, data);
-};
-
-export const emitToCounseling = (sessionId, event, data) => {
-  if (io) io.to(`counseling:${sessionId}`).emit(event, data);
 };

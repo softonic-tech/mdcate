@@ -20,7 +20,7 @@ export default function ProtectedRoute({ children }) {
     return (
       <div className="page-loader">
         <div className="loader-spinner" />
-        <p className="loader-text">Loading MedPrep Pro…</p>
+        <p className="loader-text">Loading medprep.study…</p>
       </div>
     );
   }

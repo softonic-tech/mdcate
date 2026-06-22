@@ -4,11 +4,12 @@
 import { Download } from "lucide-react";
 import { useState } from "react";
 import PdfModal from "@/components/book/PdfModal";
-import { downloadBook } from "@/api/book.api"; // ✅ use API
+import AlertDialog from "@/components/dashboard/AlertDialog";
 
 export default function BookCard({ book }) {
   const [open, setOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
 
   const imageSrc =
     book.coverImage && book.coverImage !== ""
@@ -18,16 +19,15 @@ export default function BookCard({ book }) {
  const handleDownload = async () => {
   try {
     setDownloading(true);
+    setDownloadError(false);
 
-    // direct backend redirect to signed URL
     window.open(
       `${process.env.NEXT_PUBLIC_API_URL}/books/download/${book._id}`,
       "_blank"
     );
-
   } catch (err) {
     console.error("Download error:", err);
-    alert("Download failed. Please try again.");
+    setDownloadError(true);
   } finally {
     setDownloading(false);
   }
@@ -78,6 +78,15 @@ export default function BookCard({ book }) {
   url={open ? `${process.env.NEXT_PUBLIC_API_URL}/books/view/${book._id}` : null} 
   onClose={() => setOpen(false)} 
 />
+
+      <AlertDialog
+        open={downloadError}
+        onClose={() => setDownloadError(false)}
+        title="Download failed"
+        message="We couldn't start the download. Please check your connection and try again."
+        okLabel="OK"
+        variant="danger"
+      />
     </>
   );
 }

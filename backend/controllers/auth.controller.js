@@ -13,6 +13,7 @@ import {
   findOrCreateFacebookUser,
   safeUserData,
 } from "../services/auth.service.js";
+import { syncSubscriptionStatus } from "../services/payment.service.js";
 
 export const signup = asyncHandler(async (req, res) => {
   const user = await signupService(req.body);
@@ -42,7 +43,8 @@ export const login = asyncHandler(async (req, res) => {
 });
 
 export const getMe = asyncHandler(async (req, res) => {
-  res.status(200).json({ success: true, data: req.user });
+  await syncSubscriptionStatus(req.user);
+  res.status(200).json({ success: true, data: safeUserData(req.user) });
 });
 
 export const forgotPassword = asyncHandler(async (req, res) => {

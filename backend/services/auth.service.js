@@ -7,6 +7,7 @@ import { generateToken, generateRefreshToken } from "../utils/generateToken.js";
 import { sendResetPasswordEmail } from "./email.service.js";
 import { publishToQueue, QUEUES } from "../config/rabbitmq.config.js";
 import env from "../config/env.config.js";
+import { startTrialForUser, buildSubscriptionSummary } from "./subscription.service.js";
 
 const isAdminEmail = (email) => env.ADMIN_EMAIL && email === env.ADMIN_EMAIL;
 
@@ -19,6 +20,7 @@ export const safeUserData = (user) => ({
   role: user.role,
   points: user.points,
   streak: user.streak,
+  subscription: buildSubscriptionSummary(user),
 });
 
 export const signupService = async ({ username, email, password }) => {
@@ -36,6 +38,9 @@ export const signupService = async ({ username, email, password }) => {
     provider: "local",
     role: isAdminEmail(email) ? "admin" : "user",
   });
+
+  startTrialForUser(user);
+  await user.save({ validateBeforeSave: false });
 
   return user;
 };
@@ -58,6 +63,11 @@ export const loginService = async ({ email, password }) => {
   if (!isMatch) throw ApiError.unauthorized("Invalid email or password");
 
   await updateLoginStreak(user);
+
+  if (!user.subscription?.trialStartedAt && user.role !== "admin") {
+    startTrialForUser(user);
+    await user.save({ validateBeforeSave: false });
+  }
 
   return user;
 };
@@ -153,6 +163,8 @@ export const googleAuthService = async (googleIdToken) => {
       avatarSource: "google",
       role: isAdminEmail(email) ? "admin" : "user",
     });
+    startTrialForUser(user);
+    await user.save({ validateBeforeSave: false });
   } else if (!user.googleId) {
     user.googleId = sub;
     user.isVerified = true;
@@ -161,6 +173,11 @@ export const googleAuthService = async (googleIdToken) => {
   }
 
   await updateLoginStreak(user);
+
+  if (!user.subscription?.trialStartedAt && user.role !== "admin") {
+    startTrialForUser(user);
+    await user.save({ validateBeforeSave: false });
+  }
 
   const token = generateToken(user._id);
   return { user, token };
@@ -205,6 +222,8 @@ export const findOrCreateFacebookUser = async (profile) => {
       avatarSource: "facebook",
       role: isAdminEmail(profile.email) ? "admin" : "user",
     });
+    startTrialForUser(user);
+    await user.save({ validateBeforeSave: false });
   } else {
     if (!user.facebookId) user.facebookId = profile.id;
     if (isAdminEmail(profile.email)) user.role = "admin";
@@ -212,6 +231,11 @@ export const findOrCreateFacebookUser = async (profile) => {
   }
 
   await updateLoginStreak(user);
+
+  if (!user.subscription?.trialStartedAt && user.role !== "admin") {
+    startTrialForUser(user);
+    await user.save({ validateBeforeSave: false });
+  }
 
   return user;
 };

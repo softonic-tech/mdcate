@@ -14,6 +14,13 @@ import { setToken, removeToken, getToken } from "@/api/client";
 
 const AuthContext = createContext(null);
 
+const normalizeUser = (userData) => {
+  if (!userData) return null;
+  const id = userData.id || userData._id;
+  if (!id) return userData;
+  return { ...userData, id, _id: id };
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +57,7 @@ export function AuthProvider({ children }) {
         const res = await getMeApi();
         if (!cancelled) {
           const userData = res?.user || res?.data || null;
-          setUser(userData);
+          setUser(normalizeUser(userData));
         }
       } catch {
         if (!cancelled) {
@@ -90,7 +97,7 @@ export function AuthProvider({ children }) {
     const userData = apiResponse?.data || apiResponse;
 
     if (token) setToken(token);
-    setUser(userData);
+    setUser(normalizeUser(userData));
   }, []);
 
   // ──────────────────────────────────────────────

@@ -9,9 +9,11 @@ import { connectRabbitMQ } from "./config/rabbitmq.config.js";
 import { initSocket } from "./websocket/socket.js";
 import { startWorkers } from "./jobs/index.js";
 import env from "./config/env.config.js";
+import { seedDefaultPlansService } from "./services/pricingPlan.service.js";
 
 const startServer = async () => {
   await connectDB();
+  await seedDefaultPlansService();
 
   const httpServer = http.createServer(app);
 

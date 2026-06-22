@@ -1,8 +1,9 @@
-
 "use client";
 
 import { useState } from "react";
+import { FileText } from "lucide-react";
 import PdfModal from "../book/PdfModal";
+import Modal from "@/components/dashboard/Modal";
 
 const BASE_URL = "http://localhost:5000";
 
@@ -18,147 +19,59 @@ export default function ViewNoteModal({ note, onClose }) {
 
   if (!note) return null;
 
-  // ================= OPEN PDF =================
   const handleOpenPdf = () => {
     if (note?.pdf?.url) {
-      const fullUrl = getFileUrl(note.pdf.url);
-      setPdfUrl(fullUrl); // ✅ ONLY FILE URL
+      setPdfUrl(getFileUrl(note.pdf.url));
     }
   };
 
-  // ================= CONTENT =================
   const renderContent = () => {
-    // IMAGE
     if (note?.image?.url) {
       return (
         <img
           src={getFileUrl(note.image.url)}
-          alt="note"
+          alt={note.title || "Note image"}
+          className="note-view__image"
           onClick={() => setZoom(true)}
-          style={{
-            width: "100%",
-            borderRadius: 10,
-            cursor: "zoom-in",
-          }}
         />
       );
     }
 
-    // PDF
     if (note?.pdf?.url) {
       return (
-        <button onClick={handleOpenPdf} style={styles.pdfBtn}>
-          📄 Open PDF
+        <button type="button" className="btn-primary note-view__pdf-btn" onClick={handleOpenPdf}>
+          <FileText size={16} />
+          Open PDF
         </button>
       );
     }
 
-    // TEXT
     if (note?.content) {
-      return (
-        <div style={styles.text}>
-          {note.content}
-        </div>
-      );
+      return <div className="note-view__text">{note.content}</div>;
     }
 
-    return <p style={{ color: "#9ca3af" }}>No content available</p>;
+    return <p className="text-muted">No content available</p>;
   };
 
   return (
     <>
-      {/* MAIN MODAL */}
-      <div style={styles.overlay}>
-        <div style={styles.modal}>
+      <Modal
+        open={Boolean(note)}
+        onClose={onClose}
+        title={note.title}
+        subtitle={`Subject: ${note.subjectId?.name || "N/A"}`}
+        size="lg"
+      >
+        {renderContent()}
+      </Modal>
 
-          {/* HEADER */}
-          <div style={styles.header}>
-            <h3>{note.title}</h3>
-            <button onClick={onClose}>✖</button>
-          </div>
-
-          {/* SUBJECT */}
-          <p style={styles.meta}>
-            Subject: {note.subjectId?.name || "N/A"}
-          </p>
-
-          {/* BODY */}
-          <div>{renderContent()}</div>
-
+      {zoom && note?.image?.url && (
+        <div className="note-view__zoom" onClick={() => setZoom(false)} role="presentation">
+          <img src={getFileUrl(note.image.url)} alt={note.title || "Note"} className="note-view__zoom-img" />
         </div>
+      )}
 
-        {/* IMAGE ZOOM */}
-        {zoom && note?.image?.url && (
-          <div style={styles.zoom} onClick={() => setZoom(false)}>
-            <img src={getFileUrl(note.image.url)} style={styles.zoomImg} />
-          </div>
-        )}
-      </div>
-
-      {/* PDF MODAL */}
       <PdfModal url={pdfUrl} onClose={() => setPdfUrl(null)} />
     </>
   );
 }
-
-/* ================= STYLES ================= */
-const styles = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.75)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 9999,
-  },
-
-  modal: {
-    width: "70%",
-    maxHeight: "90vh",
-    background: "#0f172a",
-    borderRadius: 12,
-    padding: 16,
-    overflowY: "auto",
-    color: "#fff",
-  },
-
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-
-  meta: {
-    color: "#9ca3af",
-    fontSize: 14,
-  },
-
-  text: {
-    whiteSpace: "pre-wrap",
-    color: "#e5e7eb",
-  },
-
-  pdfBtn: {
-    padding: "10px 14px",
-    background: "#2563eb",
-    color: "#fff",
-    borderRadius: 8,
-    border: "none",
-    cursor: "pointer",
-  },
-
-  zoom: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.9)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  zoomImg: {
-    maxWidth: "90%",
-    maxHeight: "90%",
-  },
-};

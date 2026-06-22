@@ -16,8 +16,6 @@ export * from "./leaderboard.api";
 export * from "./video.api";
 export * from "./notification.api";
 export * from "./contact.api";
-export * from "./counselingSession.api";
-export * from "./counselingParticipant.api";
 export * from "./mnemonic.api";
 export * from "./highYieldFact.api";
 export * from "./studyPlan.api";

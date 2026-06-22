@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import PageHeader from "@/components/dashboard/PageHeader";
+import EmptyState from "@/components/dashboard/EmptyState";
+import {
+  FilterPanel,
+  FilterField,
+  FilterRow,
+  ListMeta,
+} from "@/components/dashboard/StudyPageUI";
+import { usePageSearch } from "@/hooks/usePageSearch";
+import { BookOpen } from "lucide-react";
 import { getTestsApi, getTestApi } from "@/api/test.api";
 import {
   createAttempt,
@@ -16,52 +26,6 @@ function formatCountdown(totalSeconds) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-const S = {
-  page: {
-    padding: 20,
-    background: "#0f172a",
-    minHeight: "100vh",
-    color: "#fff",
-  },
-
-  card: {
-    background: "#1e293b",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-
-  btn: {
-    padding: "10px 16px",
-    borderRadius: 8,
-    border: "none",
-    background: "#0ea5e9",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: 700,
-  },
-
-  btnGray: {
-    padding: "10px 16px",
-    borderRadius: 8,
-    border: "none",
-    background: "#334155",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: 700,
-  },
-
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: 8,
-    border: "1px solid #334155",
-    background: "#1e293b",
-    color: "#fff",
-  },
-};
-
-// ✅ FIX: normalize answers safely
 const normalizeAnswers = (arr = []) => {
   const map = {};
   arr.forEach((a) => {
@@ -71,6 +35,7 @@ const normalizeAnswers = (arr = []) => {
 };
 
 export default function PastPapersPage() {
+  const { query, clearQuery } = usePageSearch("Search papers…");
   const [papers, setPapers] = useState([]);
   const [attempts, setAttempts] = useState([]);
 
@@ -78,7 +43,6 @@ export default function PastPapersPage() {
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
 
-  const [search, setSearch] = useState("");
   const [subjects, setSubjects] = useState([]);
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [secondsLeft, setSecondsLeft] = useState(null);
@@ -118,7 +82,7 @@ const loadData = async () => {
   return papers.filter((p) => {
     const titleMatch = p.title
       ?.toLowerCase()
-      .includes(search.toLowerCase());
+      .includes(query.toLowerCase());
 
     const subjectMatch =
       subjectFilter === "all"
@@ -128,7 +92,7 @@ const loadData = async () => {
 
     return titleMatch && subjectMatch;
   });
-}, [papers, search, subjectFilter]);
+}, [papers, query, subjectFilter]);
 
   // ================= START TEST =================
   const start = async (paper) => {
@@ -213,32 +177,32 @@ const loadData = async () => {
       answersMap[a.questionId] = a.selectedOption;
     });
     return (
-      <div style={S.page}>
-        <h1 style={{ fontSize: 26, fontWeight: 800 }}>
+      <div className="page-shell study-page exam-session">
+        <h1 className="exam-session__title exam-session__title--lg">
           Solutions
         </h1>
 
-        <div style={S.card}>
-          <h2 style={{ color: "#2dd4bf", fontSize: 32 }}>
+        <div className="exam-card">
+          <p className="exam-result-score">
             {result.score}/{result.totalQuestions}
-          </h2>
-          <p style={{ color: "#94a3b8" }}>
+          </p>
+          <p className="exam-result-meta">
             Percentile: {result.percentile}%
           </p>
         </div>
 
         {(result.questions || []).map((q, i) => {
           const selected = answersMap[q._id];
-          const correct = q.correctAnswer; 
-         const isCorrect = Number(selected) === Number(correct);
+          const correct = q.correctAnswer;
+          const isCorrect = Number(selected) === Number(correct);
 
           return (
-            <div key={q._id} style={S.card}>
-              <p style={{ fontWeight: 700 }}>
+            <div key={q._id} className="exam-card">
+              <p className="exam-card__question">
                 Q{i + 1}. {q.text}
               </p>
 
-              <div style={{ marginTop: 10 }}>
+              <div>
                 {q.options?.map((o, idx) => {
                   const isUser = selected === idx;
                   const isAns = correct === idx;
@@ -246,21 +210,13 @@ const loadData = async () => {
                   return (
                     <div
                       key={idx}
-                      style={{
-                        padding: 8,
-                        marginBottom: 6,
-                        borderRadius: 6,
-                        background: isAns
-                          ? "#14532d"
+                      className={`exam-solution-option${
+                        isAns
+                          ? " exam-solution-option--correct"
                           : isUser
-                          ? "#7f1d1d"
-                          : "#0f172a",
-                        color: isAns
-                          ? "#22c55e"
-                          : isUser
-                          ? "#ef4444"
-                          : "#cbd5e1",
-                      }}
+                          ? " exam-solution-option--wrong"
+                          : " exam-solution-option--neutral"
+                      }`}
                     >
                       {String.fromCharCode(65 + idx)}. {o}
                     </div>
@@ -268,38 +224,31 @@ const loadData = async () => {
                 })}
               </div>
 
-              <p
-                style={{
-                  marginTop: 8,
-                  fontWeight: 700,
-                  color: isCorrect ? "#22c55e" : "#ef4444",
-                }}
-              >
+              <p className={`exam-verdict ${isCorrect ? "exam-verdict--correct" : "exam-verdict--wrong"}`}>
                 {isCorrect
                   ? "Correct"
-                  : `Wrong (Correct: ${String.fromCharCode(
-                      65 + correct
-                    )})`}
+                  : `Wrong (Correct: ${String.fromCharCode(65 + correct)})`}
               </p>
 
               {q.explanation && (
-                <p style={{ color: "#94a3b8" }}>
-                  💡 {q.explanation}
-                </p>
+                <p className="exam-explanation">💡 {q.explanation}</p>
               )}
             </div>
           );
         })}
 
-        <button
-          style={S.btn}
-          onClick={() => {
-            setResult(null);
-            setActive(null);
-          }}
-        >
-          Back
-        </button>
+        <div className="exam-actions">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => {
+              setResult(null);
+              setActive(null);
+            }}
+          >
+            Back
+          </button>
+        </div>
       </div>
     );
   }
@@ -311,40 +260,21 @@ const loadData = async () => {
     const hasLimit = durationMin > 0;
 
     return (
-      <div style={S.page}>
-        <h1 style={{ fontSize: 24, fontWeight: 800 }}>
+      <div className="page-shell study-page exam-session">
+        <h1 className="exam-session__title exam-session__title--lg">
           {active.title}
         </h1>
 
         {hasLimit && (
-          <div
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 10,
-              marginBottom: 16,
-              padding: "12px 16px",
-              borderRadius: 8,
-              background: "rgba(30, 58, 95, 0.95)",
-              border: "1px solid rgba(51, 65, 85, 0.9)",
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: "8px 16px",
-              fontSize: 14,
-            }}
-          >
-            <span style={{ color: "#94a3b8" }}>
-              Time limit: <strong style={{ color: "#e2e8f0" }}>{durationMin} min</strong> to complete
+          <div className="exam-timer-bar">
+            <span className="exam-timer-bar__meta">
+              Time limit: <strong>{durationMin} min</strong> to complete
             </span>
             {secondsLeft !== null && (
               <span
-                style={{
-                  fontWeight: 800,
-                  fontVariantNumeric: "tabular-nums",
-                  fontSize: 18,
-                  color: secondsLeft <= 60 ? "#f87171" : "#38bdf8",
-                }}
+                className={`exam-timer-bar__countdown${
+                  secondsLeft <= 60 ? " exam-timer-bar__countdown--urgent" : ""
+                }`}
               >
                 {formatCountdown(secondsLeft)} left
               </span>
@@ -353,22 +283,19 @@ const loadData = async () => {
         )}
 
         {!hasLimit && (
-          <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
+          <p className="exam-session__hint">
             No time limit — complete at your own pace.
           </p>
         )}
 
         {qs.map((q, i) => (
-          <div key={q._id} style={S.card}>
-            <p style={{ fontWeight: 700 }}>
+          <div key={q._id} className="exam-card">
+            <p className="exam-card__question">
               Q{i + 1}. {q.text}
             </p>
 
             {q.options?.map((o, idx) => (
-              <label
-                key={idx}
-                style={{ display: "block", marginTop: 6 }}
-              >
+              <label key={idx} className="exam-option">
                 <input
                   type="radio"
                   name={q._id}
@@ -380,129 +307,120 @@ const loadData = async () => {
                     }))
                   }
                 />
-                {" "}
-                {String.fromCharCode(65 + idx)}. {o}
+                <span>
+                  {String.fromCharCode(65 + idx)}. {o}
+                </span>
               </label>
             ))}
           </div>
         ))}
 
-        <button style={S.btn} onClick={() => submit(false)}>
-          Submit
-        </button>
-
-        <button
-          style={{ ...S.btnGray, marginLeft: 10 }}
-          onClick={() => setActive(null)}
-        >
-          Cancel
-        </button>
+        <div className="exam-actions">
+          <button type="button" className="btn-primary" onClick={() => submit(false)}>
+            Submit
+          </button>
+          <button type="button" className="btn-ghost" onClick={() => setActive(null)}>
+            Cancel
+          </button>
+        </div>
       </div>
     );
   }
 
+  const hasActiveFilters = Boolean(query.trim()) || subjectFilter !== "all";
+
+  const clearFilters = () => {
+    clearQuery();
+    setSubjectFilter("all");
+  };
+
   // ================= MAIN =================
   return (
-    <div style={S.page}>
-      <h1 style={{ fontSize: 26, fontWeight: 800 }}>
-        Past Papers & Solutions
-      </h1>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr",
-          gap: 10,
-          marginTop: 12,
-        }}
-      >
-      {/* SEARCH */}
-      <input
-        style={S.input}
-        placeholder="Search paper..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
+    <div className="page-shell study-page">
+      <PageHeader
+        eyebrow={{ icon: BookOpen, label: "Archive" }}
+        title="Past Papers & Solutions"
+        description="Attempt past papers and review detailed solutions."
       />
 
-      {/* SUBJECT FILTER */}
-      <select
-        style={S.input}
-        value={subjectFilter}
-        onChange={(e) => setSubjectFilter(e.target.value)}
-      >
-        <option value="all">All Subjects</option>
+      <FilterPanel hasActiveFilters={hasActiveFilters} onClear={clearFilters} ariaLabel="Filter past papers">
+        <FilterRow>
+          <FilterField label="Subject" icon={BookOpen}>
+            <select
+              value={subjectFilter}
+              onChange={(e) => setSubjectFilter(e.target.value)}
+              aria-label="Subject"
+            >
+              <option value="all">All subjects</option>
+              {subjects.map((s) => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+          </FilterField>
+        </FilterRow>
+      </FilterPanel>
 
-        {subjects.map((s) => (
-          <option key={s._id} value={s._id}>
-            {s.name}
-          </option>
-        ))}
-      </select>
-    </div>
-      <div style={{ marginTop: 20 }}>
-        {filtered.length === 0 ? (
-          <p style={{ color: "#94a3b8" }}>
-            No papers found
-          </p>
-        ) : (
-          filtered.map((p) => {
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={BookOpen}
+          title="No papers found"
+          description="Try a different search or subject filter."
+          action={
+            hasActiveFilters ? (
+              <button type="button" className="btn-primary" onClick={clearFilters}>
+                Clear filters
+              </button>
+            ) : null
+          }
+        />
+      ) : (
+        <>
+          <ListMeta end={filtered.length} label={`paper${filtered.length === 1 ? "" : "s"}`} />
+          <div className="data-list">
+          {filtered.map((p) => {
             const old = attemptMap[p._id];
 
             return (
-              <div key={p._id} style={S.card}>
-                <h3 style={{ fontWeight: 800 }}>
-                  {p.title}
-                </h3>
+              <article key={p._id} className="item-card">
+                <div className="item-card__body">
+                <header className="item-card__head">
+                  <h3 className="item-card__head-title">{p.title}</h3>
+                  {old && <span className="badge badge--success">Solved</span>}
+                </header>
 
-                <p style={{ color: "#94a3b8" }}>
-                  {p.questions?.length || 0} Questions
+                <p className="item-card__meta">
+                  {p.questions?.length || 0} questions
                 </p>
 
                 {old ? (
                   <>
-                    <span
-                      onClick={() =>
-                        openResult(p, old)
-                      }
-                      style={{
-                        display: "inline-block",
-                        marginTop: 10,
-                        padding: "4px 10px",
-                        borderRadius: 20,
-                        background: "#14532d",
-                        color: "#86efac",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: 700,
-                      }}
-                    >
-                      ✅ Solved (View Solution)
-                    </span>
-
-                    <p
-                      style={{
-                        marginTop: 8,
-                        fontSize: 13,
-                        color: "#cbd5e1",
-                      }}
-                    >
-                      Score: {old.score}/
-                      {old.totalQuestions}
+                    <p className="item-card__meta">
+                      Score: {old.score}/{old.totalQuestions}
                     </p>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => openResult(p, old)}
+                    >
+                      View Solution
+                    </button>
                   </>
                 ) : (
                   <button
-                    style={{ ...S.btn, marginTop: 10 }}
+                    type="button"
+                    className="btn-primary"
                     onClick={() => start(p)}
                   >
                     Start Test
                   </button>
                 )}
-              </div>
+                </div>
+              </article>
             );
-          })
-        )}
-      </div>
+          })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

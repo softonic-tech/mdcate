@@ -1,87 +1,27 @@
 "use client";
 
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+
 export default function PdfModal({ url, onClose }) {
-  if (!url) return null;
+  if (!url || typeof document === "undefined") return null;
 
-  return (
-    <div
-      className="pdf-modal-overlay"
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        backgroundColor: "rgba(0,0,0,0.6)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 9999,
-        overflowY: "auto",
-        padding: "1rem",
-      }}
-    >
-      <div
-        className="pdf-modal"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "90%",
-          maxWidth: "900px",
-          height: "90vh",
-          background: "#fff",
-          borderRadius: "12px",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: "10px",
-            right: "10px",
-            background: "#ff5f5f",
-            color: "#fff",
-            border: "none",
-            borderRadius: "50%",
-            width: "32px",
-            height: "32px",
-            cursor: "pointer",
-            fontWeight: "bold",
-            fontSize: "16px",
-          }}
-        >
-          ✕
-        </button>
-
-        {/* PDF Viewer */}
-        <iframe
-          src={url}
-          title="PDF Viewer"
-          style={{
-            flex: 1,
-            border: "none",
-            width: "100%",
-            height: "100%",
-          }}
-        />
+  return createPortal(
+    <div className="modal-overlay modal-overlay--top" onClick={onClose}>
+      <div className="modal modal--pdf" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="PDF viewer">
+        <div className="modal__head">
+          <div className="modal__head-text">
+            <h2>PDF Viewer</h2>
+          </div>
+          <button type="button" className="modal__close" onClick={onClose} aria-label="Close PDF">
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
+        <div className="modal__body modal__body--flush">
+          <iframe src={url} title="PDF Viewer" className="pdf-modal__frame" />
+        </div>
       </div>
-
-      <style jsx>{`
-        /* Styled Scrollbar for PDF iframe */
-        .pdf-modal iframe::-webkit-scrollbar {
-          width: 8px;
-        }
-        .pdf-modal iframe::-webkit-scrollbar-thumb {
-          background-color: rgba(0, 0, 0, 0.4);
-          border-radius: 4px;
-        }
-      `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }

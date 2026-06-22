@@ -18,4 +18,7 @@ const studyPlanSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// One user can have many plans — non-unique index for listing by user
+studyPlanSchema.index({ userId: 1, createdAt: -1 });
+
 export default mongoose.model("StudyPlan", studyPlanSchema);

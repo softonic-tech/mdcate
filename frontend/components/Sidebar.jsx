@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback } from "react";
+import { memo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Brain,
   Video,
+  PlayCircle,
   BarChart3,
   Layers,
   MessageSquare,
@@ -21,7 +22,7 @@ import {
   Download,
   Bell,
   HelpCircle,
-  Users,
+  CreditCard,
   X,
   LogOut,
 } from "lucide-react";
@@ -42,6 +43,7 @@ const NAV_SECTIONS = [
       { name: "Tests", href: "/dashboard/tests", icon: FileText },
       { name: "Past Papers", href: "/dashboard/past-papers", icon: BookOpen },
       { name: "Books & Notes", href: "/dashboard/books", icon: BookOpen },
+      { name: "Chapter Videos", href: "/dashboard/chapter-videos", icon: PlayCircle },
       { name: "Video Summarizer", href: "/dashboard/video-summarizer", icon: Video },
     ],
   },
@@ -58,7 +60,6 @@ const NAV_SECTIONS = [
     label: "Community",
     items: [
       { name: "Discussion Room", href: "/dashboard/discussion", icon: MessageSquare },
-      { name: "Counseling Room", href: "/dashboard/counseling", icon: Users },
       { name: "Leaderboard", href: "/dashboard/leaderboard", icon: Award },
     ],
   },
@@ -69,6 +70,7 @@ const NAV_SECTIONS = [
       { name: "Offline Mode", href: "/dashboard/offline", icon: Download },
       { name: "Study Plan", href: "/dashboard/study-plan", icon: CalendarCheck },
       { name: "Notifications", href: "/dashboard/notifications", icon: Bell },
+      { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
       { name: "Contact Us", href: "/dashboard/contact", icon: HelpCircle },
     ],
   },
@@ -78,18 +80,36 @@ function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
   const { logout } = useAuth();
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
   const handleNavClick = useCallback(() => {
-    if (window.innerWidth < 1024) onClose();
+    if (window.matchMedia("(max-width: 1023px)").matches) onClose();
   }, [onClose]);
 
   return (
     <>
-      {/* Mobile overlay */}
       {isOpen && (
-        <div className="sidebar-overlay" onClick={onClose} />
+        <div
+          className="sidebar-overlay"
+          onClick={onClose}
+          aria-hidden="true"
+        />
       )}
 
-      <aside className={`sidebar ${isOpen ? "sidebar--open" : ""}`}>
+      <aside
+        className={`sidebar ${isOpen ? "sidebar--open" : ""}`}
+        id="dash-sidebar"
+        aria-label="Main navigation"
+      >
         {/* Logo */}
         <div className="sidebar__logo">
           <Link href="/dashboard" className="sidebar__logo-link" onClick={handleNavClick}>
@@ -99,7 +119,7 @@ function Sidebar({ isOpen, onClose }) {
               </video>
             </div>
             <span className="sidebar__logo-text">
-              Med<span className="sidebar__logo-accent">Prep</span>
+              medprep<span className="sidebar__logo-accent">.study</span>
             </span>
           </Link>
           <button className="sidebar__close" onClick={onClose} aria-label="Close sidebar">

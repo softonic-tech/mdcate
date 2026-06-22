@@ -32,3 +32,22 @@ export const createExamService = async (data) => {
 export const getAllExamsService = async () => {
   return await ExamCountdown.find().sort({ examDate: 1 });
 };
+
+export const getExamsWithCountdown = async () => {
+  const exams = await ExamCountdown.find().sort({ examDate: 1 }).lean();
+  const now = Date.now();
+
+  return exams.map((exam) => {
+    const examDate = new Date(exam.examDate).getTime();
+    const daysRemaining = Math.ceil((examDate - now) / (1000 * 60 * 60 * 24));
+    return { ...exam, daysRemaining };
+  });
+};
+
+export const updateExam = async (id, data) => {
+  return ExamCountdown.findByIdAndUpdate(id, data, { new: true });
+};
+
+export const deleteExam = async (id) => {
+  return ExamCountdown.findByIdAndDelete(id);
+};

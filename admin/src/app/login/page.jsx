@@ -34,7 +34,7 @@ export default function LoginPage() {
               <source src="/logo.mp4" type="video/mp4" />
             </video>
           </div>
-          <h1 className="text-xl font-bold font-heading">MedPrep Pro Admin</h1>
+          <h1 className="text-xl font-bold font-heading">medprep.study Admin</h1>
           <p className="text-sm text-text-muted mt-1">Sign in to your admin account</p>
         </div>
 
@@ -52,7 +52,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="input-base"
-              placeholder="admin@medprep.com"
+              placeholder="admin@medprep.study"
               required
             />
           </div>

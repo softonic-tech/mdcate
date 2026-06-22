@@ -6,7 +6,7 @@ import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { FormInput, FormTextarea, FormSelect, FormCheckbox } from "@/components/forms/FormFields";
-import { questionHooks, subjectHooks, useChaptersBySubject, useBulkCreateQuestions } from "@/hooks/useResource";
+import { questionHooks, subjectHooks, useChaptersBySubject, useBulkCreateQuestions, usePreviewMcqImport, useConfirmMcqImport } from "@/hooks/useResource";
 import useForm from "@/hooks/useForm";
 import { Plus, Upload, X } from "lucide-react";
 import { getName, formatDate, truncate } from "@/lib/utils";
@@ -15,16 +15,29 @@ import { DIFFICULTIES } from "@/lib/constants";
 export default function QuestionsPage() {
   const [modal, setModal] = useState({ open: false, mode: "create", item: null });
   const [bulkModal, setBulkModal] = useState(false);
+  const [bulkTab, setBulkTab] = useState("file");
   const [confirm, setConfirm] = useState({ open: false, id: null });
   const [bulkJson, setBulkJson] = useState("");
+  const [importFile, setImportFile] = useState(null);
+  const [importSubjectId, setImportSubjectId] = useState("");
+  const [importChapterId, setImportChapterId] = useState("");
+  const [importMode, setImportMode] = useState("auto");
+  const [importPreview, setImportPreview] = useState(null);
   const [filterSubject, setFilterSubject] = useState("");
+  const [page, setPage] = useState(1);
 
-  const questions = questionHooks.useList({ subjectId: filterSubject || undefined });
+  const questions = questionHooks.useList({
+    page,
+    subjectId: filterSubject || undefined,
+  });
   const subjects = subjectHooks.useList();
   const createMut = questionHooks.useCreate();
   const updateMut = questionHooks.useUpdate();
   const removeMut = questionHooks.useRemove();
   const bulkMut = useBulkCreateQuestions();
+  const previewMut = usePreviewMcqImport();
+  const confirmImportMut = useConfirmMcqImport();
+  const importChapters = useChaptersBySubject(importSubjectId);
 
   const { values, handleChange, setField, reset } = useForm({
     text: "", options: ["", ""], correctAnswer: 0, explanation: "",
@@ -36,6 +49,51 @@ export default function QuestionsPage() {
   const chapters = useChaptersBySubject(values.subjectId);
   const subjectOptions = (subjects.data?.data || []).map((s) => ({ value: s._id, label: `${s.name} (${s.board})` }));
   const chapterOptions = (chapters.data?.data || []).map((c) => ({ value: c._id, label: c.name }));
+  const importChapterOptions = (importChapters.data?.data || []).map((c) => ({ value: c._id, label: c.name }));
+
+  const resetFileImport = () => {
+    setImportFile(null);
+    setImportPreview(null);
+    setImportMode("auto");
+  };
+
+  const closeBulkModal = () => {
+    setBulkModal(false);
+    setBulkJson("");
+    resetFileImport();
+    setImportSubjectId("");
+    setImportChapterId("");
+    setBulkTab("file");
+  };
+
+  const handlePreviewImport = async (e) => {
+    e.preventDefault();
+    if (!importFile) return alert("Choose a .docx or .pdf file");
+    if (!importSubjectId || !importChapterId) return alert("Select subject and chapter");
+
+    const formData = new FormData();
+    formData.append("file", importFile);
+    formData.append("subjectId", importSubjectId);
+    formData.append("chapterId", importChapterId);
+    formData.append("mode", importMode);
+
+    try {
+      const res = await previewMut.mutateAsync(formData);
+      setImportPreview(res?.data || res);
+    } catch {}
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreview?.questions?.length) return;
+    try {
+      await confirmImportMut.mutateAsync({
+        subjectId: importSubjectId,
+        chapterId: importChapterId,
+        questions: importPreview.questions,
+      });
+      closeBulkModal();
+    } catch {}
+  };
 
   const openCreate = () => {
     reset({ text: "", options: ["", ""], correctAnswer: 0, explanation: "", subjectId: "", chapterId: "", difficulty: "medium", tags: [], isPastPaper: false, paperYear: "" });
@@ -80,8 +138,7 @@ export default function QuestionsPage() {
     try {
       const parsed = JSON.parse(bulkJson);
       await bulkMut.mutateAsync(Array.isArray(parsed) ? parsed : [parsed]);
-      setBulkModal(false);
-      setBulkJson("");
+      closeBulkModal();
     } catch (err) {
       if (err instanceof SyntaxError) {
         alert("Invalid JSON format");
@@ -137,7 +194,16 @@ export default function QuestionsPage() {
       </div>
 
       <div className="mb-4 max-w-sm">
-        <FormSelect name="filterSubject" value={filterSubject} onChange={(e) => setFilterSubject(e.target.value)} options={subjectOptions} placeholder="Filter by subject" />
+        <FormSelect
+          name="filterSubject"
+          value={filterSubject}
+          onChange={(e) => {
+            setFilterSubject(e.target.value);
+            setPage(1);
+          }}
+          options={subjectOptions}
+          placeholder="Filter by subject"
+        />
       </div>
 
       <DataTable
@@ -146,7 +212,15 @@ export default function QuestionsPage() {
         loading={questions.isLoading}
         error={questions.error}
         onRetry={questions.refetch}
-        pagination={questions.data?.pagination ? { page: questions.data.pagination.page, totalPages: questions.data.pagination.totalPages, onPageChange: () => {} } : undefined}
+        pagination={
+          questions.data?.pagination
+            ? {
+                page: questions.data.pagination.page,
+                totalPages: questions.data.pagination.totalPages,
+                onPageChange: setPage,
+              }
+            : undefined
+        }
       />
 
       {/* Create/Edit Modal */}
@@ -218,17 +292,153 @@ export default function QuestionsPage() {
       </Modal>
 
       {/* Bulk Import Modal */}
-      <Modal open={bulkModal} onClose={() => setBulkModal(false)} title="Bulk Import Questions" size="lg">
-        <form onSubmit={handleBulkSubmit} className="space-y-4">
-          <p className="text-sm text-text-secondary">Paste a JSON array of questions. Each question needs: text, options, correctAnswer, subjectId, chapterId.</p>
-          <FormTextarea name="bulkJson" value={bulkJson} onChange={(e) => setBulkJson(e.target.value)} rows={12} placeholder='[{ "text": "...", "options": [...], "correctAnswer": 0, "subjectId": "...", "chapterId": "..." }]' />
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <button type="button" onClick={() => setBulkModal(false)} className="btn-secondary btn-sm">Cancel</button>
-            <button type="submit" disabled={bulkMut.isPending} className="btn-primary btn-sm">
-              {bulkMut.isPending ? "Importing..." : "Import"}
-            </button>
+      <Modal open={bulkModal} onClose={closeBulkModal} title="Bulk Import Questions" size="xl">
+        <div className="flex gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setBulkTab("file")}
+            className={bulkTab === "file" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+          >
+            Word / PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkTab("json")}
+            className={bulkTab === "json" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+          >
+            JSON
+          </button>
+        </div>
+
+        {bulkTab === "file" ? (
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Upload a .docx or .pdf file. We try structured parsing first, then OpenAI for messy layouts.
+              Review the preview before saving to the database.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormSelect
+                label="Subject"
+                name="importSubjectId"
+                value={importSubjectId}
+                onChange={(e) => {
+                  setImportSubjectId(e.target.value);
+                  setImportChapterId("");
+                  setImportPreview(null);
+                }}
+                options={subjectOptions}
+                placeholder="Select subject"
+              />
+              <FormSelect
+                label="Chapter"
+                name="importChapterId"
+                value={importChapterId}
+                onChange={(e) => {
+                  setImportChapterId(e.target.value);
+                  setImportPreview(null);
+                }}
+                options={importChapterOptions}
+                placeholder={importSubjectId ? "Select chapter" : "Select subject first"}
+              />
+            </div>
+
+            <FormSelect
+              label="Import mode"
+              name="importMode"
+              value={importMode}
+              onChange={(e) => {
+                setImportMode(e.target.value);
+                setImportPreview(null);
+              }}
+              options={[
+                { value: "auto", label: "Auto (structured first, AI fallback)" },
+                { value: "structured", label: "Structured template only" },
+                { value: "ai", label: "AI parsing only" },
+              ]}
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">File</label>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={(e) => {
+                  setImportFile(e.target.files?.[0] || null);
+                  setImportPreview(null);
+                }}
+                className="input-base w-full"
+              />
+              <p className="text-xs text-text-muted mt-1">
+                Structured template: <code>1. [EASY] Question</code>, <code>A) ...</code>, <code>Correct Answer: A</code>
+              </p>
+            </div>
+
+            {importPreview && (
+              <div className="rounded-lg border border-border p-4 space-y-3 bg-surface-alt">
+                <p className="text-sm font-medium">
+                  Preview: {importPreview.previewCount} questions found via{" "}
+                  <StatusBadge variant="info">{importPreview.method}</StatusBadge>
+                </p>
+                {importPreview.errorCount > 0 && (
+                  <p className="text-xs text-warning">{importPreview.errorCount} blocks skipped during parsing</p>
+                )}
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {(importPreview.sample || []).map((q, i) => (
+                    <div key={i} className="text-sm border-b border-border pb-2">
+                      <p className="font-medium">{truncate(q.text, 90)}</p>
+                      <p className="text-text-muted text-xs">{q.options?.length || 0} options · {q.difficulty}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <button type="button" onClick={closeBulkModal} className="btn-secondary btn-sm">Cancel</button>
+              {!importPreview ? (
+                <button
+                  type="button"
+                  onClick={handlePreviewImport}
+                  disabled={previewMut.isPending}
+                  className="btn-primary btn-sm"
+                >
+                  {previewMut.isPending ? "Parsing..." : "Preview import"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmImport}
+                  disabled={confirmImportMut.isPending}
+                  className="btn-primary btn-sm"
+                >
+                  {confirmImportMut.isPending
+                    ? "Importing..."
+                    : `Import ${importPreview.previewCount} questions`}
+                </button>
+              )}
+            </div>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleBulkSubmit} className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Paste a JSON array of questions. Each question needs: text, options, correctAnswer, subjectId, chapterId.
+            </p>
+            <FormTextarea
+              name="bulkJson"
+              value={bulkJson}
+              onChange={(e) => setBulkJson(e.target.value)}
+              rows={12}
+              placeholder='[{ "text": "...", "options": [...], "correctAnswer": 0, "subjectId": "...", "chapterId": "..." }]'
+            />
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <button type="button" onClick={closeBulkModal} className="btn-secondary btn-sm">Cancel</button>
+              <button type="submit" disabled={bulkMut.isPending} className="btn-primary btn-sm">
+                {bulkMut.isPending ? "Importing..." : "Import JSON"}
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <ConfirmDialog

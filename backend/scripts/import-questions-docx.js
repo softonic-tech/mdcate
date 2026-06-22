@@ -25,7 +25,7 @@ const __dirname = dirname(__filename);
 
 dotenv.config({ path: join(__dirname, "../.env") });
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/medprep-pro";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/medprep-study";
 
 const SECTION_LINE = /^SECTION\s+\d+/i;
 const QUESTION_LINE = /^(\d+)\.\s*\[(EASY|MODERATE|MEDIUM|HARD|HARDER)\]\s*(.+)$/i;

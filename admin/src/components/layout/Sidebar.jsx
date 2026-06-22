@@ -27,7 +27,7 @@ export default function Sidebar() {
             <source src="/logo.mp4" type="video/mp4" />
           </video>
         </div>
-        {!collapsed && <span className="font-heading font-bold text-lg truncate">MedPrep Pro</span>}
+        {!collapsed && <span className="font-heading font-bold text-lg truncate">medprep.study</span>}
       </div>
 
       {/* Nav Links */}

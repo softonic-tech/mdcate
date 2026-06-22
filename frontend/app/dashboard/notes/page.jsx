@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 import NotesCard from "@/components/notes/NotesCard";
 import AddNoteModal from "@/components/notes/AddNoteModal";
@@ -16,8 +16,23 @@ import {
 } from "@/api/notes.api";
 
 import { getSubjectsApi } from "@/api/subject.api";
+import { StickyNote } from "lucide-react";
+import PageHeader from "@/components/dashboard/PageHeader";
+import EmptyState from "@/components/dashboard/EmptyState";
+import { SkeletonCardGrid, SkeletonMeta } from "@/components/dashboard/Skeleton";
+import {
+  FilterPanel,
+  FilterField,
+  FilterRow,
+  ListMeta,
+  PaginationBar,
+} from "@/components/dashboard/StudyPageUI";
+import { usePageSearch } from "@/hooks/usePageSearch";
+import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
+import { BookOpen, Tag } from "lucide-react";
 
 export default function NotesPage() {
+  const { query, clearQuery } = usePageSearch("Search notes…");
   const [notes, setNotes] = useState([]);
   const [subjects, setSubjects] = useState([]);
 
@@ -26,15 +41,17 @@ export default function NotesPage() {
 
   const [viewNote, setViewNote] = useState(null);
   const [editNote, setEditNote] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [total, setTotal] = useState(0);
 
   const [filters, setFilters] = useState({
-    search: "",
     subjectId: "",
     type: "",
     page: 1,
   });
+  const prevQueryRef = useRef(query);
 
   const limit = 12;
 
@@ -71,12 +88,18 @@ export default function NotesPage() {
 
   // ================= NOTES (FIXED SEARCH + PAGINATION + DEBOUNCE) =================
 useEffect(() => {
+  if (prevQueryRef.current !== query) {
+    prevQueryRef.current = query;
+    setFilters((p) => ({ ...p, page: 1 }));
+    return;
+  }
+
   const timer = setTimeout(async () => {
     try {
       setLoading(true);
 
       const res = await getNotes({
-        search: filters.search.trim(),
+        search: query.trim(),
         subjectId: filters.subjectId,
         type: filters.type,
         page: filters.page,
@@ -103,9 +126,17 @@ useEffect(() => {
   }, 400);
 
   return () => clearTimeout(timer);
-}, [filters]);
+}, [filters, query]);
 
   const totalPages = Math.ceil(total / limit);
+  const pageStart = total ? (filters.page - 1) * limit + 1 : 0;
+  const pageEnd = Math.min(filters.page * limit, total);
+  const hasActiveFilters = Boolean(query.trim() || filters.subjectId || filters.type);
+
+  const clearFilters = () => {
+    clearQuery();
+    setFilters({ subjectId: "", type: "", page: 1 });
+  };
 
   // ================= FIX SUBJECT NAME =================
   const getSubjectName = (note) => {
@@ -129,7 +160,7 @@ const handleSubmit = async (data) => {
     }
 
     const res = await getNotes({
-      search: filters.search.trim(),
+      search: query.trim(),
       subjectId: filters.subjectId,
       type: filters.type,
       page: filters.page,
@@ -154,11 +185,19 @@ const handleSubmit = async (data) => {
   }
 };
 
-  const handleDelete = async (note) => {
-    if (!confirm("Delete note?")) return;
-
-    await deleteNote(note._id);
-    setNotes((prev) => prev.filter((n) => n._id !== note._id));
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setDeleting(true);
+      await deleteNote(deleteTarget._id);
+      setNotes((prev) => prev.filter((n) => n._id !== deleteTarget._id));
+      toast.success("Note deleted");
+      setDeleteTarget(null);
+    } catch {
+      toast.error("Failed to delete note");
+    } finally {
+      setDeleting(false);
+    }
   };
 
 const handleView = async (note) => {
@@ -179,179 +218,93 @@ const handleView = async (note) => {
 };
 
   return (
-    <div className="notes-page">
-      
-      {/* HEADER */}
-      <div className="notes-header">
-        <div>
-          <h1 style={{ fontSize: "26px", fontWeight: 700 }}>
-            Notes Library
-          </h1>
-          <p style={{ color: "#9ca3af", fontSize: 14 }}>
-            Manage formulas, shortcuts & summaries
-          </p>
-        </div>
+    <div className="page-shell study-page">
+      <PageHeader
+        eyebrow={{ icon: StickyNote, label: "Notes" }}
+        title="Notes Library"
+        description="Manage formulas, shortcuts, and summaries."
+        actions={
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => {
+              setEditNote(null);
+              setOpenModal(true);
+            }}
+          >
+            Add Note
+          </button>
+        }
+      />
 
-        <button
-          onClick={() => {
-            setEditNote(null);
-            setOpenModal(true);
-          }}
-          style={{
-            padding: "10px 16px",
-            background: "#2563eb",
-            color: "#fff",
-            borderRadius: 8,
-            fontWeight: 600,
-          }}
-        >
-          + Add Note
-        </button>
-      </div>
+      <FilterPanel hasActiveFilters={hasActiveFilters} onClear={clearFilters} ariaLabel="Filter notes">
+        <FilterRow>
+          <FilterField label="Subject" icon={BookOpen}>
+            <select
+              value={filters.subjectId}
+              onChange={(e) => setFilters((p) => ({ ...p, subjectId: e.target.value, page: 1 }))}
+              aria-label="Subject"
+            >
+              <option value="">All subjects</option>
+              {subjects?.map((s) => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+          </FilterField>
+          <FilterField label="Type" icon={Tag}>
+            <select
+              value={filters.type}
+              onChange={(e) => setFilters((p) => ({ ...p, type: e.target.value, page: 1 }))}
+              aria-label="Note type"
+            >
+              <option value="">All types</option>
+              <option value="formula">Formula</option>
+              <option value="shortcut">Shortcut</option>
+              <option value="summary">Summary</option>
+              <option value="general">General</option>
+            </select>
+          </FilterField>
+        </FilterRow>
+      </FilterPanel>
 
-      {/* FILTER BAR (FIXED UI) */}
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          marginTop: 20,
-          flexWrap: "wrap",
-          alignItems: "center",
-          background: "#0f172a",
-          padding: 12,
-          borderRadius: 10,
-        }}
-      >
+      {loading ? <SkeletonMeta /> : notes.length > 0 ? (
+        <ListMeta start={pageStart} end={pageEnd} total={total} label="notes" />
+      ) : null}
 
-        {/* SEARCH FIXED */}
-        <input
-          placeholder="Search notes..."
-          value={filters.search}
-          onChange={(e) =>
-            setFilters((p) => ({
-              ...p,
-              search: e.target.value,
-              page: 1,
-            }))
-          }
-          style={{
-            flex: 1,
-            minWidth: 280,
-            padding: "14px",
-            borderRadius: 10,
-            border: "1px solid #334155",
-            background: "#1e293b",
-            color: "#fff",
-            fontSize: 15,
-            outline: "none",
-          }}
-        />
-
-        {/* SUBJECT FIX */}
-        <select
-          value={filters.subjectId}
-          onChange={(e) =>
-            setFilters((p) => ({
-              ...p,
-              subjectId: e.target.value,
-              page: 1,
-            }))
-          }
-          style={{
-            padding: "12px",
-            borderRadius: 10,
-            background: "#1e293b",
-            color: "#fff",
-            border: "1px solid #334155",
-            minWidth: 180,
-          }}
-        >
-          <option value="">All Subjects</option>
-          {subjects?.length > 0 &&
-            subjects.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name}
-              </option>
-            ))}
-        </select>
-
-        {/* TYPE FIX (WHITE ISSUE FIXED) */}
-        <select
-          value={filters.type}
-          onChange={(e) =>
-            setFilters((p) => ({
-              ...p,
-              type: e.target.value,
-              page: 1,
-            }))
-          }
-          style={{
-            padding: "12px",
-            borderRadius: 10,
-            background: "#1e293b",
-            color: "#fff",
-            border: "1px solid #334155",
-            minWidth: 160,
-          }}
-        >
-          <option value="">All Types</option>
-          <option value="formula">Formula</option>
-          <option value="shortcut">Shortcut</option>
-          <option value="summary">Summary</option>
-          <option value="general">General</option>
-        </select>
-
-      </div>
-
-      {/* NOTES GRID */}
-      <div className="notes-grid" style={{ marginTop: 20 }}>
-        {loading ? (
-          <p>Loading...</p>
-        ) : notes.length === 0 ? (
-          <p>No notes found</p>
+      {loading ? (
+        <SkeletonCardGrid count={6} />
+      ) : (
+      <div className="item-grid">
+        {notes.length === 0 ? (
+          <EmptyState
+            icon={StickyNote}
+            title="No notes found"
+            description="Try different filters or add a new note."
+            className="span-full"
+          />
         ) : (
           notes.map((note) => (
             <NotesCard
               key={note._id}
               note={note}
-              subjectName={getSubjectName(note)} // ✅ FIXED
-              onView={(note) => setViewNote(note)}
+              subjectName={getSubjectName(note)}
+              onView={(n) => setViewNote(n)}
               onEdit={(n) => {
                 setEditNote(n);
                 setOpenModal(true);
               }}
-              onDelete={handleDelete}
+              onDelete={(n) => setDeleteTarget(n)}
             />
           ))
         )}
       </div>
-
-      {/* PAGINATION FIXED */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              onClick={() =>
-                setFilters((p) => ({
-                  ...p,
-                  page: i + 1,
-                }))
-              }
-              style={{
-                padding: "6px 12px",
-                margin: 4,
-                borderRadius: 6,
-                background:
-                  filters.page === i + 1 ? "#2563eb" : "#1e293b",
-                color: "#fff",
-              }}
-            >
-              {i + 1}
-            </button>
-          ))}
-        </div>
       )}
+
+      <PaginationBar
+        page={filters.page}
+        totalPages={totalPages}
+        onPageChange={(p) => setFilters((prev) => ({ ...prev, page: p }))}
+      />
 
       {/* MODALS */}
       <AddNoteModal
@@ -368,6 +321,21 @@ const handleView = async (note) => {
       <ViewNoteModal
         note={viewNote}
         onClose={() => setViewNote(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete note?"
+        message={
+          deleteTarget
+            ? `"${deleteTarget.title}" will be permanently removed. This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        cancelLabel="Keep note"
+        loading={deleting}
       />
 
     </div>

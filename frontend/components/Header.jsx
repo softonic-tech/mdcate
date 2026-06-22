@@ -3,53 +3,59 @@
 import { io } from "socket.io-client";
 import { memo, useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Menu, Search, BellRing, ChevronDown, User, Settings, LogOut } from "lucide-react";
+import { Menu, Search, BellRing, ChevronDown, User, Settings, LogOut, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useProfile } from "@/context/ProfileContext";
+import { useDashboardSearch } from "@/context/DashboardSearchContext";
 import { getUnreadCount } from "@/api/notification.api";
+import { subscribeUnreadCount } from "@/utils/notificationEvents";
 
-function Header({ onMenuToggle }) {
+function Header({ onMenuToggle, sidebarOpen = false }) {
   const { user, logout } = useAuth();
   const { profile } = useProfile();
+  const { query, setQuery, clearQuery, placeholder, enabled } = useDashboardSearch();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [unread, setUnread] = useState(0);
 
   const dropdownRef = useRef(null);
+  const searchAreaRef = useRef(null);
+  const userId = user?.id || user?._id;
 
-  // ── Fetch initial unread count + setup WebSocket ──
   useEffect(() => {
-    if (!user?._id) return;
+    if (!userId) return;
 
-    // 1️⃣ Fetch initial count
     const loadUnread = async () => {
       try {
         const res = await getUnreadCount();
-        setUnread(res.data.count || 0);
+        setUnread(res?.data?.count ?? 0);
       } catch (e) {
         console.log("Error fetching unread count:", e);
       }
     };
     loadUnread();
 
-    // 2️⃣ Setup WebSocket
-    const socket = io(process.env.NEXT_PUBLIC_API_URL, {
+    const socket = io(process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, "") || "http://localhost:5000", {
       auth: { token: localStorage.getItem("token") },
     });
 
-    // 3️⃣ Listen for updates
     socket.on("unread-count", (count) => {
-      setUnread(count);
+      setUnread(Number(count) || 0);
     });
 
-    // 4️⃣ Cleanup
+    socket.on("notification:new", () => {
+      loadUnread();
+    });
+
+    const unsubLocal = subscribeUnreadCount(setUnread);
+
     return () => {
+      unsubLocal();
       socket.disconnect();
     };
-  }, [user]);
+  }, [userId]);
 
-  // ── Close dropdown on outside click ──
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -60,48 +66,125 @@ function Header({ onMenuToggle }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!searchOpen) return;
+
+    const handleClickOutside = (e) => {
+      if (
+        searchAreaRef.current &&
+        !searchAreaRef.current.contains(e.target)
+      ) {
+        setSearchOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [searchOpen]);
+
+  useEffect(() => {
+    if (!enabled) setSearchOpen(false);
+  }, [enabled]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle(
+      "dash-search-open",
+      Boolean(searchOpen && enabled)
+    );
+    return () => document.documentElement.classList.remove("dash-search-open");
+  }, [searchOpen, enabled]);
+
+  useEffect(() => {
+    if (sidebarOpen) setSearchOpen(false);
+  }, [sidebarOpen]);
+
   const toggleDropdown = useCallback(() => {
     setDropdownOpen((prev) => !prev);
   }, []);
+
+  const handleMenuClick = useCallback(() => {
+    setDropdownOpen(false);
+    setSearchOpen(false);
+    onMenuToggle();
+  }, [onMenuToggle]);
 
   const displayName = profile?.username || user?.username || user?.email || "User";
   const avatarUrl = profile?.profilePicture || null;
 
   return (
-    <header className="dash-header">
-      <div className="dash-header__left">
-        <button className="dash-header__menu-btn" onClick={onMenuToggle} aria-label="Toggle sidebar">
+    <header className={`dash-header${searchOpen && enabled ? " dash-header--search-open" : ""}`}>
+      <div className="dash-header__left" ref={searchAreaRef}>
+        <button
+          type="button"
+          className="dash-header__menu-btn"
+          onClick={handleMenuClick}
+          aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+          aria-expanded={sidebarOpen}
+          aria-controls="dash-sidebar"
+        >
           <Menu size={22} />
         </button>
 
-        {/* Search bar — desktop */}
-        <div className={`dash-header__search ${searchOpen ? "dash-header__search--open" : ""}`}>
-          <Search size={16} className="dash-header__search-icon" />
-          <input type="text" placeholder="Search anything…" className="dash-header__search-input" />
-        </div>
+        {enabled && (
+          <>
+            <div className={`dash-header__search ${searchOpen ? "dash-header__search--open" : ""}`}>
+              <Search size={16} className="dash-header__search-icon" aria-hidden="true" />
+              <input
+                type="search"
+                placeholder={placeholder}
+                className="dash-header__search-input"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label={placeholder}
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="dash-header__search-clear"
+                  onClick={clearQuery}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
 
-        {/* Search toggle — mobile */}
-        <button
-          className="dash-header__search-toggle"
-          onClick={() => setSearchOpen((v) => !v)}
-          aria-label="Toggle search"
-        >
-          <Search size={20} />
-        </button>
+            <button
+              type="button"
+              className={`dash-header__search-toggle${searchOpen ? " dash-header__search-toggle--active" : ""}`}
+              onClick={() => setSearchOpen((v) => !v)}
+              aria-label={searchOpen ? "Close search" : "Open search"}
+              aria-expanded={searchOpen}
+            >
+              {searchOpen ? <X size={20} /> : <Search size={20} />}
+            </button>
+          </>
+        )}
       </div>
 
       <div className="dash-header__right">
-        {/* Notifications */}
-        <Link href="/dashboard/notifications" className="dash-header__icon-btn relative">
+        <Link
+          href="/dashboard/notifications"
+          className="dash-header__icon-btn relative"
+          aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
+        >
           <BellRing size={20} />
-          {unread > 0 && <span className="dash-header__badge">{unread > 99 ? "99+" : unread}</span>}
+          {unread > 0 && (
+            <span className="dash-header__badge">{unread > 99 ? "99+" : unread}</span>
+          )}
         </Link>
 
-        {/* Profile dropdown */}
         <div className="dash-header__profile" ref={dropdownRef}>
-          <button className="dash-header__profile-btn" onClick={toggleDropdown}>
+          <button
+            type="button"
+            className="dash-header__profile-btn"
+            onClick={toggleDropdown}
+            aria-label="Account menu"
+            aria-expanded={dropdownOpen}
+            aria-haspopup="menu"
+          >
             {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} className="dash-header__avatar" />
+              <img src={avatarUrl} alt="" className="dash-header__avatar" />
             ) : (
               <div className="dash-header__avatar dash-header__avatar--placeholder">
                 {displayName.charAt(0).toUpperCase()}
@@ -111,30 +194,42 @@ function Header({ onMenuToggle }) {
             <ChevronDown
               size={14}
               className={`dash-header__chevron ${dropdownOpen ? "dash-header__chevron--open" : ""}`}
+              aria-hidden="true"
             />
           </button>
 
           {dropdownOpen && (
-            <div className="dash-header__dropdown">
+            <div className="dash-header__dropdown" role="menu">
               <div className="dash-header__dropdown-header">
                 <p className="dash-header__dropdown-name">{displayName}</p>
                 <p className="dash-header__dropdown-email">{user?.email || ""}</p>
               </div>
               <div className="dash-header__dropdown-divider" />
-              <Link href="/dashboard/profile" className="dash-header__dropdown-item" onClick={() => setDropdownOpen(false)}>
+              <Link
+                href="/dashboard/profile"
+                className="dash-header__dropdown-item"
+                role="menuitem"
+                onClick={() => setDropdownOpen(false)}
+              >
                 <User size={16} />
                 <span>My Profile</span>
               </Link>
               <Link
                 href="/dashboard/notifications"
                 className="dash-header__dropdown-item"
+                role="menuitem"
                 onClick={() => setDropdownOpen(false)}
               >
                 <Settings size={16} />
                 <span>Settings</span>
               </Link>
               <div className="dash-header__dropdown-divider" />
-              <button className="dash-header__dropdown-item dash-header__dropdown-item--danger" onClick={logout}>
+              <button
+                type="button"
+                className="dash-header__dropdown-item dash-header__dropdown-item--danger"
+                role="menuitem"
+                onClick={logout}
+              >
                 <LogOut size={16} />
                 <span>Log Out</span>
               </button>

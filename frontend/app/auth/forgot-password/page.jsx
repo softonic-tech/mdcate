@@ -88,7 +88,7 @@ export default function ForgotPassword() {
         </div>
 
         <div className={styles.right}>
-          <img src="/right-side.jpg" alt="MedPrep Pro" className={styles.rightImage} />
+          <img src="/right-side.jpg" alt="medprep.study" className={styles.rightImage} />
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import * as service from "../services/notification.service.js";
+import { pushUnreadCount } from "../utils/pushUnreadCount.js";
 
 // Admin-only
 export const createNotification = asyncHandler(async (req, res) => {
@@ -37,17 +38,20 @@ export const getNotificationById = asyncHandler(async (req, res) => {
 // User-only
 export const markAsRead = asyncHandler(async (req, res) => {
   const data = await service.markAsReadService(req.user._id, req.params.id);
-  res.json({ success: true, data });
+  const count = await pushUnreadCount(req.user._id);
+  res.json({ success: true, data, unreadCount: count });
 });
 
 export const markAsUnread = asyncHandler(async (req, res) => {
   const data = await service.markAsUnreadService(req.user._id, req.params.id);
-  res.json({ success: true, data });
+  const count = await pushUnreadCount(req.user._id);
+  res.json({ success: true, data, unreadCount: count });
 });
 
 export const markAllAsRead = asyncHandler(async (req, res) => {
   await service.markAllAsReadService(req.user._id);
-  res.json({ success: true, message: "All notifications marked as read" });
+  const count = await pushUnreadCount(req.user._id);
+  res.json({ success: true, message: "All notifications marked as read", unreadCount: count });
 });
 
 export const getUnreadCount = asyncHandler(async (req, res) => {

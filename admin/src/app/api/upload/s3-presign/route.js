@@ -5,6 +5,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 export const runtime = "nodejs";
 
 const COVER_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
 
 function sanitizeFileKeySegment(name) {
   if (!name || typeof name !== "string") return "file";
@@ -68,10 +69,10 @@ export async function POST(request) {
     return NextResponse.json({ success: false, message: "Invalid JSON" }, { status: 400 });
   }
 
-  const { pdfFileName, coverContentType } = body || {};
-  if (!pdfFileName && !coverContentType) {
+  const { pdfFileName, coverContentType, videoFileName, videoContentType } = body || {};
+  if (!pdfFileName && !coverContentType && !videoFileName) {
     return NextResponse.json(
-      { success: false, message: "Provide pdfFileName and/or coverContentType" },
+      { success: false, message: "Provide pdfFileName, coverContentType, and/or videoFileName" },
       { status: 400 }
     );
   }
@@ -116,6 +117,28 @@ export async function POST(request) {
       ContentType: ct,
     });
     out.cover = {
+      uploadUrl: await getSignedUrl(s3, cmd, { expiresIn: ttl }),
+      fileUrl: `${baseUrl}/${key}`,
+      contentType: ct,
+    };
+  }
+
+  if (videoFileName) {
+    const ct = String(videoContentType || "video/mp4").toLowerCase();
+    if (!VIDEO_TYPES.includes(ct)) {
+      return NextResponse.json(
+        { success: false, message: "videoContentType must be MP4, WebM, or QuickTime" },
+        { status: 400 }
+      );
+    }
+    const safe = sanitizeFileKeySegment(videoFileName);
+    const key = `chapter-videos/${Date.now()}-${safe}`;
+    const cmd = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: ct,
+    });
+    out.video = {
       uploadUrl: await getSignedUrl(s3, cmd, { expiresIn: ttl }),
       fileUrl: `${baseUrl}/${key}`,
       contentType: ct,

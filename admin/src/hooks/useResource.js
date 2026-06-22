@@ -62,11 +62,11 @@ export function createResourceHooks(key, service) {
 // ===== RESOURCE HOOKS =====
 import {
   subjectService, chapterService, questionService, testService,
-  bookService, videoService, badgeService, challengeService,
-  counselingService, mnemonicService, highYieldFactService,
+  bookService, videoService, chapterVideoService, badgeService, challengeService,
+  mnemonicService, highYieldFactService,
   examCountdownService, contactMessageService, performanceService,
   testAttemptService, userService, notificationService,
-  leaderboardService, challengeAttemptService,
+  leaderboardService, challengeAttemptService, pricingPlanService, paymentService,
 } from "@/lib/services";
 
 // Subjects
@@ -81,17 +81,17 @@ export const testHooks = createResourceHooks("tests", testService);
 // Books
 export const bookHooks = createResourceHooks("books", bookService);
 
-// Videos
+// Videos (AI summarizer)
 export const videoHooks = createResourceHooks("videos", videoService);
+
+// Chapter videos (S3 lectures)
+export const chapterVideoHooks = createResourceHooks("chapterVideos", chapterVideoService);
 
 // Badges
 export const badgeHooks = createResourceHooks("badges", badgeService);
 
 // Challenges
 export const challengeHooks = createResourceHooks("challenges", challengeService);
-
-// Counseling
-export const counselingHooks = createResourceHooks("counseling", counselingService);
 
 // Mnemonics
 export const mnemonicHooks = createResourceHooks("mnemonics", mnemonicService);
@@ -230,6 +230,27 @@ export function useBulkCreateQuestions() {
   });
 }
 
+export function usePreviewMcqImport() {
+  return useMutation({
+    mutationFn: (formData) => questionService.previewFileImport(formData),
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+}
+
+export function useConfirmMcqImport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload) => questionService.confirmFileImport(payload),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["questions"] });
+      const created = res?.data?.created ?? res?.created ?? 0;
+      const skipped = res?.data?.skipped ?? res?.skipped ?? 0;
+      toast.success(`Imported ${created} questions (${skipped} skipped as duplicates)`);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+}
+
 // Test Attempts
 export function useTestAttempts(params) {
   return useQuery({
@@ -270,3 +291,20 @@ export const notificationHooks = createResourceHooks(
   "notifications",
   notificationService
 );
+
+export const pricingPlanHooks = createResourceHooks("pricing-plans", pricingPlanService);
+
+export const paymentHooks = {
+  useList: () =>
+    useQuery({
+      queryKey: ["payments"],
+      queryFn: () => paymentService.getAll(),
+    }),
+  useApprove: () => {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: (id) => paymentService.approve(id),
+      onSuccess: () => qc.invalidateQueries({ queryKey: ["payments"] }),
+    });
+  },
+};

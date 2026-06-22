@@ -26,8 +26,6 @@ import leaderboardRoutes from "./routes/leaderboard.routes.js";
 import videoRoutes from "./routes/video.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import contactRoutes from "./routes/contactMessage.routes.js";
-import counselingSessionRoutes from "./routes/counselingSession.routes.js";
-import counselingParticipantRoutes from "./routes/counselingParticipant.routes.js";
 import mnemonicRoutes from "./routes/mnemonic.routes.js";
 import highYieldFactRoutes from "./routes/highYieldFact.routes.js";
 import studyPlanRoutes from "./routes/studyPlan.routes.js";
@@ -37,6 +35,10 @@ import syncLogRoutes from "./routes/syncLog.routes.js";
 import offlineContentRoutes from "./routes/offlineContent.routes.js";
 import discussionThreadRoutes from "./routes/discussionThread.routes.js";
 import discussionMessageRoutes from "./routes/discussionMessage.routes.js";
+import chapterVideoRoutes from "./routes/chapterVideo.routes.js";
+import pricingPlanRoutes from "./routes/pricingPlan.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
+import publicRoutes from "./routes/public.routes.js";
 
 const app = express();
 
@@ -61,7 +63,7 @@ if (env.NODE_ENV === "development") {
 }
 
 app.get("/api/v1/health", (_req, res) => {
-  res.json({ success: true, message: "MedPrep Pro API is running" });
+  res.json({ success: true, message: "medprep.study API is running" });
 });
 
 app.use("/api/v1/auth", authRoutes);
@@ -83,8 +85,6 @@ app.use("/api/v1/leaderboard", leaderboardRoutes);
 app.use("/api/v1/videos", videoRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/contact", contactRoutes);
-app.use("/api/v1/counseling-sessions", counselingSessionRoutes);
-app.use("/api/v1/counseling-participants", counselingParticipantRoutes);
 app.use("/api/v1/mnemonics", mnemonicRoutes);
 app.use("/api/v1/high-yield-facts", highYieldFactRoutes);
 app.use("/api/v1/study-plans", studyPlanRoutes);
@@ -94,6 +94,10 @@ app.use("/api/v1/sync-logs", syncLogRoutes);
 app.use("/api/v1/offline-content", offlineContentRoutes);
 app.use("/api/v1/discussion-threads", discussionThreadRoutes);
 app.use("/api/v1/discussion-messages", discussionMessageRoutes);
+app.use("/api/v1/chapter-videos", chapterVideoRoutes);
+app.use("/api/v1/pricing", pricingPlanRoutes);
+app.use("/api/v1/billing", paymentRoutes);
+app.use("/api/v1/public", publicRoutes);
 
 app.use((req, _res, next) => {
   next(ApiError.notFound(`Route not found: ${req.method} ${req.originalUrl}`));

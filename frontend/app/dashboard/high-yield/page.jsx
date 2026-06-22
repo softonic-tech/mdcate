@@ -4,6 +4,18 @@ import { useEffect } from "react";
 import { useApi } from "@/hooks/useApi";
 import { getHighYieldFacts } from "@/api/highYieldFact.api";
 import { formatDate, truncate } from "@/lib/utils";
+import { Zap } from "lucide-react";
+import PageHeader from "@/components/dashboard/PageHeader";
+import EmptyState from "@/components/dashboard/EmptyState";
+import { SkeletonCardGrid, SkeletonMeta } from "@/components/dashboard/Skeleton";
+import { ListMeta } from "@/components/dashboard/StudyPageUI";
+
+const sourceLabel = (type) => {
+  if (type === "manual") return "Manual";
+  if (type === "auto") return "AI Generated";
+  if (type === "pastpaper") return "Past Paper";
+  return type || "General";
+};
 
 export default function HighYieldUserPage() {
   const { data, loading, error, execute } = useApi(getHighYieldFacts);
@@ -15,86 +27,49 @@ export default function HighYieldUserPage() {
   const facts = data || [];
 
   return (
-    <div className="min-h-screen px-6 py-8 bg-[var(--midnight)] text-[var(--cloud)]">
+    <div className="page-shell study-page">
+      <PageHeader
+        eyebrow={{ icon: Zap, label: "Revision" }}
+        title="High-Yield Facts"
+        description="Quick revision points for exam-critical topics."
+      />
 
-      {/* HEADER */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">
-          🔥 High Yield Facts
-        </h1>
-        <p className="text-[var(--graphite)] mt-1">
-          Quick revision important exam points
-        </p>
-      </div>
-
-      {/* STATES */}
-      {loading && (
-        <p className="text-[var(--graphite)]">Loading facts...</p>
+      {loading ? (
+        <>
+          <SkeletonMeta />
+          <SkeletonCardGrid count={6} />
+        </>
+      ) : error ? (
+        <p className="text-error">{error}</p>
+      ) : facts.length === 0 ? (
+        <EmptyState
+          icon={Zap}
+          title="No facts yet"
+          description="High-yield revision facts will appear here once available."
+        />
+      ) : (
+        <>
+          <ListMeta end={facts.length} label="facts" />
+          <div className="item-grid">
+          {facts.map((fact) => (
+            <article key={fact._id} className="item-card">
+              <div className="item-card__body">
+                <h3>{fact.title || "Untitled Fact"}</h3>
+                <p className="item-card__desc">{truncate(fact.content, 140)}</p>
+                <p className="item-card__meta">
+                  {fact.subjectId?.name} · {fact.chapterId?.name || "General"}
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                  <span className="badge badge--dark">Priority {fact.priority}</span>
+                  <span className="badge badge--neutral">{sourceLabel(fact.sourceType)}</span>
+                  <span className="badge badge--neutral">{formatDate(fact.createdAt)}</span>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+        </>
       )}
-
-      {error && (
-        <p className="text-[var(--danger)]">{error}</p>
-      )}
-
-      {/* GRID */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-
-        {facts.map((fact) => (
-          <div
-            key={fact._id}
-            className="p-5 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md hover:translate-y-[-4px] transition-all"
-          >
-
-            {/* TITLE */}
-            <h2 className="text-lg font-semibold text-white mb-2">
-              {fact.title || "Untitled Fact"}
-            </h2>
-
-            {/* CONTENT */}
-            <p className="text-sm text-[var(--mist)] mb-3">
-              {truncate(fact.content, 120)}
-            </p>
-
-            {/* META */}
-            <p className="text-xs text-[var(--graphite)] mb-3">
-              📚 {fact.subjectId?.name} • {fact.chapterId?.name || "General"}
-            </p>
-
-            {/* BADGES */}
-            <div className="flex flex-wrap gap-2 text-xs">
-
-              <span className="px-2 py-1 rounded bg-[rgba(20,184,166,0.15)] text-[#2dd4bf]">
-                🔥 Priority {fact.priority}
-              </span>
-
-             <span
-                className={`px-2 py-1 rounded text-xs font-semibold ${
-                  fact.sourceType === "manual"
-                    ? "bg-[rgba(20,184,166,0.15)] text-[#2dd4bf]"
-                    : fact.sourceType === "auto"
-                    ? "bg-[rgba(239,68,68,0.15)] text-red-400"
-                    : fact.sourceType === "pastpaper"
-                    ? "bg-[rgba(99,102,241,0.15)] text-indigo-300"
-                    : "bg-white/5 text-gray-400"
-                }`}
-              >
-                {fact.sourceType === "auto" && (
-                  <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded">
-                    🤖 AI Generated
-                  </span>
-                )}
-              </span>
-
-              <span className="px-2 py-1 rounded bg-white/5 text-gray-400">
-                📅 {formatDate(fact.createdAt)}
-              </span>
-
-            </div>
-
-          </div>
-        ))}
-
-      </div>
     </div>
   );
 }

@@ -17,7 +17,7 @@ export const sendResetPasswordEmail = async (email, token, name = "there") => {
     </div>
   `;
 
-  await sendEmail({ to: email, subject: "Reset your password - MedPrep Pro", html });
+  await sendEmail({ to: email, subject: "Reset your password - medprep.study", html });
 };
 
 export const sendNotificationEmail = async (email, title, body) => {
@@ -28,5 +28,5 @@ export const sendNotificationEmail = async (email, title, body) => {
     </div>
   `;
 
-  await sendEmail({ to: email, subject: `${title} - MedPrep Pro`, html });
+  await sendEmail({ to: email, subject: `${title} - medprep.study`, html });
 };

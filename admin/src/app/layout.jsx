@@ -4,8 +4,8 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 
 export const metadata = {
-  title: "MedPrep Pro Admin",
-  description: "Admin panel for MedPrep Pro",
+  title: "medprep.study Admin",
+  description: "Admin panel for medprep.study",
 };
 
 export default function RootLayout({ children }) {
