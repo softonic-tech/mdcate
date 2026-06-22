@@ -1,8 +1,12 @@
 FROM node:20-bookworm-slim
 
-# ffmpeg for video summarizer (yt-dlp / Whisper pipeline)
+# ffmpeg + python for video summarizer (youtube-dl-exec / yt-dlp)
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+  && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    ca-certificates \
+    python3 \
+    python-is-python3 \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
