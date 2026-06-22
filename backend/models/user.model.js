@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema(
 
     avatarSource: {
       type: String,
-      enum: ["google", "facebook", "cloudinary", null],
+      enum: ["google", "facebook", "s3", "cloudinary", null],
       default: null,
     },
 

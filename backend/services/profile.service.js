@@ -1,47 +1,21 @@
 import User from "../models/user.model.js";
-import cloudinary from "../config/cloudinary.js";
-import fs from "fs";
 import ApiError from "../utils/ApiError.js";
+import { uploadToS3, deleteS3ObjectByUrl } from "../utils/s3Upload.js";
 
-const safeUnlink = (filePath) => {
+const safeUnlink = async (filePath) => {
+  if (!filePath || typeof filePath !== "string") return;
   try {
-    if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch { /* ignore cleanup errors */ }
-};
-
-const deleteCloudinaryImage = async (imageUrl) => {
-  if (!imageUrl) return;
-  try {
-    const publicId = imageUrl.split("/").pop().split(".")[0];
-    await cloudinary.uploader.destroy(`profile_pics/${publicId}`);
-  } catch (err) {
-    console.warn("Cloudinary delete failed:", err.message);
+    const fs = await import("fs/promises");
+    await fs.unlink(filePath);
+  } catch {
+    /* ignore cleanup errors */
   }
 };
 
-const uploadToCloudinary = async (filePathOrBuffer, mimetype) => {
-  try {
-    if (Buffer.isBuffer(filePathOrBuffer)) {
-      const dataUri = `data:${mimetype};base64,${filePathOrBuffer.toString("base64")}`;
-      const result = await cloudinary.uploader.upload(dataUri, {
-        folder: "profile_pics",
-        resource_type: "image",
-        use_filename: true,
-        unique_filename: true,
-      });
-      return result.secure_url;
-    }
-    const result = await cloudinary.uploader.upload(filePathOrBuffer, {
-      folder: "profile_pics",
-      resource_type: "image",
-      use_filename: true,
-      unique_filename: true,
-    });
-    return result.secure_url;
-  } catch (err) {
-    throw ApiError.internal(`Cloudinary upload failed: ${err.message}`);
-  } finally {
-    if (typeof filePathOrBuffer === "string") safeUnlink(filePathOrBuffer);
+const deleteStoredAvatar = async (user) => {
+  if (!user?.profilePicture) return;
+  if (user.avatarSource === "s3" || user.avatarSource === "cloudinary") {
+    await deleteS3ObjectByUrl(user.profilePicture);
   }
 };
 
@@ -57,18 +31,22 @@ export const getUserProfile = async (userId) => {
 export const saveProfilePicture = async (userId, filePathOrBuffer, mimetype) => {
   const user = await User.findById(userId);
   if (!user) {
-    if (typeof filePathOrBuffer === "string") safeUnlink(filePathOrBuffer);
+    await safeUnlink(typeof filePathOrBuffer === "string" ? filePathOrBuffer : null);
     throw ApiError.notFound("User not found");
   }
 
-  if (user.avatarSource === "cloudinary") {
-    await deleteCloudinaryImage(user.profilePicture);
-  }
+  await deleteStoredAvatar(user);
 
-  const url = await uploadToCloudinary(filePathOrBuffer, mimetype);
+  const url = await uploadToS3({
+    buffer: Buffer.isBuffer(filePathOrBuffer) ? filePathOrBuffer : undefined,
+    filePath: typeof filePathOrBuffer === "string" ? filePathOrBuffer : undefined,
+    mimetype,
+    keyPrefix: "profile_pics",
+    filename: "avatar",
+  });
 
   user.profilePicture = url;
-  user.avatarSource = "cloudinary";
+  user.avatarSource = "s3";
   await user.save();
 
   return url;
@@ -82,9 +60,7 @@ export const deleteProfilePictureService = async (userId) => {
   const user = await User.findById(userId);
   if (!user) throw ApiError.notFound("User not found");
 
-  if (user.avatarSource === "cloudinary") {
-    await deleteCloudinaryImage(user.profilePicture);
-  }
+  await deleteStoredAvatar(user);
 
   user.profilePicture = null;
   user.avatarSource = null;

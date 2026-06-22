@@ -1,13 +1,13 @@
 import asyncHandler from "../utils/asyncHandler.js";
-import cloudinary from "../config/cloudinary.js";
 import s3 from "../config/awsS3.js";
-import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import * as service from "../services/book.service.js";
 import ApiError from "../utils/ApiError.js";
 import env from "../config/env.config.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { parseS3VirtualHostUrl } from "../utils/s3FileUrl.js";
 import { sanitizeFileKeySegment } from "../utils/sanitizeFileKey.js";
+import { uploadToS3 } from "../utils/s3Upload.js";
 
 function resolveS3GetParams(fileUrl) {
   const parsed = parseS3VirtualHostUrl(fileUrl);
@@ -24,44 +24,41 @@ function resolveS3GetParams(fileUrl) {
   return { bucket, key, parsed };
 }
 
+async function uploadBookCover(file) {
+  return uploadToS3({
+    buffer: file.buffer,
+    mimetype: file.mimetype,
+    keyPrefix: "books/covers",
+    filename: file.originalname,
+  });
+}
+
+async function uploadBookPdf(file) {
+  if (file.mimetype !== "application/pdf") {
+    throw ApiError.badRequest("Only PDF files are allowed");
+  }
+  return uploadToS3({
+    buffer: file.buffer,
+    mimetype: "application/pdf",
+    keyPrefix: "books",
+    filename: file.originalname,
+    contentDisposition: `inline; filename="${file.originalname}"`,
+  });
+}
+
 export const createBook = asyncHandler(async (req, res) => {
   let coverImage = "";
   let fileUrl = "";
 
-  const hasMultipart =
-    !!(req.files?.file?.[0] || req.files?.coverImage?.[0]);
+  const hasMultipart = !!(req.files?.file?.[0] || req.files?.coverImage?.[0]);
 
   if (hasMultipart) {
     if (req.files?.coverImage) {
-      const file = req.files.coverImage[0];
-      const result = await cloudinary.uploader.upload(
-        `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
-        { folder: "books/covers" }
-      );
-      coverImage = result.secure_url;
+      coverImage = await uploadBookCover(req.files.coverImage[0]);
     }
 
     if (req.files?.file) {
-      const file = req.files.file[0];
-      if (file.mimetype !== "application/pdf") {
-        throw ApiError.badRequest("Only PDF files are allowed");
-      }
-      if (!env.AWS_BUCKET) {
-        throw ApiError.badRequest("S3 is not configured");
-      }
-      const key = `books/${Date.now()}-${sanitizeFileKeySegment(file.originalname)}`;
-
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: env.AWS_BUCKET,
-          Key: key,
-          Body: file.buffer,
-          ContentType: "application/pdf",
-          ContentDisposition: `inline; filename="${file.originalname}"`,
-        })
-      );
-
-      fileUrl = `https://${env.AWS_BUCKET}.s3.${env.AWS_REGION}.amazonaws.com/${key}`;
+      fileUrl = await uploadBookPdf(req.files.file[0]);
     }
   } else {
     fileUrl = (req.body.fileUrl || "").trim();
@@ -100,38 +97,15 @@ export const updateBook = asyncHandler(async (req, res) => {
   if (typeof data.fileUrl === "string") data.fileUrl = data.fileUrl.trim();
   if (typeof data.coverImage === "string") data.coverImage = data.coverImage.trim();
 
-  const hasMultipart =
-    !!(req.files?.file?.[0] || req.files?.coverImage?.[0]);
+  const hasMultipart = !!(req.files?.file?.[0] || req.files?.coverImage?.[0]);
 
   if (hasMultipart) {
     if (req.files?.coverImage) {
-      const file = req.files.coverImage[0];
-      const result = await cloudinary.uploader.upload(
-        `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
-        { folder: "books/covers" }
-      );
-      data.coverImage = result.secure_url;
+      data.coverImage = await uploadBookCover(req.files.coverImage[0]);
     }
 
     if (req.files?.file) {
-      const file = req.files.file[0];
-      if (file.mimetype !== "application/pdf") {
-        throw ApiError.badRequest("Only PDF files are allowed");
-      }
-      if (!env.AWS_BUCKET) {
-        throw ApiError.badRequest("S3 is not configured");
-      }
-      const key = `books/${Date.now()}-${sanitizeFileKeySegment(file.originalname)}`;
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: env.AWS_BUCKET,
-          Key: key,
-          Body: file.buffer,
-          ContentType: "application/pdf",
-          ContentDisposition: `inline; filename="${file.originalname}"`,
-        })
-      );
-      data.fileUrl = `https://${env.AWS_BUCKET}.s3.${env.AWS_REGION}.amazonaws.com/${key}`;
+      data.fileUrl = await uploadBookPdf(req.files.file[0]);
     }
   }
 
@@ -168,7 +142,6 @@ export const downloadBook = asyncHandler(async (req, res) => {
   res.redirect(signedUrl);
 });
 
-
 export const viewBook = asyncHandler(async (req, res) => {
   const book = await service.getBookByIdService(req.params.id);
   if (!book.fileUrl) throw ApiError.notFound("Book file not found");
@@ -190,4 +163,3 @@ export const viewBook = asyncHandler(async (req, res) => {
 
   res.redirect(signedUrl);
 });
-

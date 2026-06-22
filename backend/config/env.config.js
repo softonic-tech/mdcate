@@ -40,10 +40,6 @@ const env = {
   SMTP_PASS: process.env.SMTP_PASS,
   FROM_NAME: process.env.FROM_NAME || "medprep.study",
 
-  CLOUD_NAME: process.env.CLOUD_NAME,
-  CLOUD_KEY: process.env.CLOUD_KEY,
-  CLOUD_SECRET: process.env.CLOUD_SECRET,
-
   AWS_REGION: process.env.AWS_REGION,
   AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
   AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,

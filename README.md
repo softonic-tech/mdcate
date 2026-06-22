@@ -8,7 +8,7 @@ A full-stack web application for MDCAT exam preparation at [medprep.study](https
 - **Backend:** Node.js, Express.js
 - **Database:** MongoDB
 - **Authentication:** JWT, Google OAuth, Facebook OAuth
-- **Storage:** Cloudinary (for profile pictures)
+- **Storage:** AWS S3 (profiles, books, notes, videos)
 
 ## Getting Started
 
@@ -17,7 +17,7 @@ A full-stack web application for MDCAT exam preparation at [medprep.study](https
 - Node.js (v18 or higher)
 - npm or yarn
 - MongoDB instance
-- Cloudinary account
+- AWS S3 bucket (and IAM credentials)
 - Google/Facebook OAuth credentials (optional)
 
 ### Installation
