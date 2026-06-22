@@ -179,8 +179,8 @@ async function seed() {
 
   // 9. Notes (depends on User, Subject, optional Chapter)
   const notes = await Notes.insertMany([
-    { title: "Cell Notes", content: "Cells are the basic unit of life.", subjectId: ids.subjects[0], chapterId: ids.chapters[0], userId: ids.users[0], type: "summary" },
-    { title: "F=ma", content: "Force = mass × acceleration", subjectId: ids.subjects[2], chapterId: ids.chapters[2], userId: ids.users[1], type: "formula" },
+    { title: "Cell Notes", content: "Cells are the basic unit of life.", subjectId: ids.subjects[0], chapterId: ids.chapters[0], userId: ids.users[0], type: "summary", sourceType: "text" },
+    { title: "F=ma", content: "Force = mass × acceleration", subjectId: ids.subjects[2], chapterId: ids.chapters[2], userId: ids.users[1], type: "formula", sourceType: "text" },
   ]);
   ids.notes = notes.map((n) => n._id);
   console.log(`✓ Notes: ${notes.length}`);
@@ -195,8 +195,8 @@ async function seed() {
 
   // 11. HighYieldFacts (depends on Subject, optional Chapter)
   const highYieldFacts = await HighYieldFact.insertMany([
-    { content: "Mitochondria have their own DNA", subjectId: ids.subjects[0], chapterId: ids.chapters[0], category: "biology" },
-    { content: "Water has high specific heat capacity", subjectId: ids.subjects[1], category: "chemistry" },
+    { content: "Mitochondria have their own DNA", subjectId: ids.subjects[0], chapterId: ids.chapters[0], category: "important" },
+    { content: "Water has high specific heat capacity", subjectId: ids.subjects[1], category: "formula" },
   ]);
   ids.highYieldFacts = highYieldFacts.map((h) => h._id);
   console.log(`✓ HighYieldFacts: ${highYieldFacts.length}`);

@@ -22,7 +22,6 @@ export const LANDING_SUBJECTS = [
   "Physics",
   "English",
   "Logical Reasoning",
-  "Analytical",
 ];
 
 export function subjectKey(name = "") {
@@ -77,7 +76,6 @@ export function subjectMeta(name = "") {
     physics: { color: "var(--amber)", key: "physics" },
     english: { color: "var(--violet)", key: "english" },
     "logical reasoning": { color: "var(--rose)", key: "logic" },
-    analytical: { color: "var(--indigo)", key: "analytical" },
   };
 
   return meta[key] || { color: "var(--teal)", key: "default" };
