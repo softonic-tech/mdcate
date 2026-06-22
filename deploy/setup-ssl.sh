@@ -26,21 +26,33 @@ docker compose up -d
 
 echo "==> Requesting SSL certificate for:"
 echo "    ${DOMAIN}, www.${DOMAIN}, api.${DOMAIN}, admin.${DOMAIN}"
+
+CERT_DOMAINS=(-d "$DOMAIN" -d "api.$DOMAIN" -d "admin.$DOMAIN")
+if dig +short "www.$DOMAIN" | grep -q .; then
+  CERT_DOMAINS+=(-d "www.$DOMAIN")
+else
+  echo "    (skipping www.$DOMAIN — no DNS record; add A/CNAME for www if you need it)"
+fi
+
 docker compose --profile certbot run --rm certbot certonly \
   --webroot -w /var/www/certbot \
   --email "$EMAIL" \
   --agree-tos \
   --no-eff-email \
-  -d "$DOMAIN" \
-  -d "www.$DOMAIN" \
-  -d "api.$DOMAIN" \
-  -d "admin.$DOMAIN"
+  "${CERT_DOMAINS[@]}"
+
+if [[ ! -f "deploy/certbot/conf/live/${DOMAIN}/fullchain.pem" ]]; then
+  echo "ERROR: Certificate files not found after certbot. Check errors above."
+  exit 1
+fi
 
 echo "==> Enabling HTTPS nginx config..."
 cp deploy/nginx/templates/medprep-https.conf deploy/nginx/conf.d/medprep.conf
 
-echo "==> Reloading nginx..."
-docker compose exec nginx nginx -s reload
+echo "==> Restarting nginx (reload is not enough after adding SSL)..."
+docker compose restart nginx
+sleep 2
+docker compose exec nginx nginx -t
 
 echo ""
 echo "SSL setup complete."
