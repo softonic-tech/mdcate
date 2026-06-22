@@ -1,21 +1,25 @@
 # =============================================================================
-# medprep.study — Docker Compose (AWS EC2 — direct ports)
+# medprep.study — Docker Compose (EC2 + domain via nginx)
 # =============================================================================
 #
-# EC2 public IP: 54.163.157.90
-# Security group: open TCP 3000 (frontend), 4000 (admin), 5000 (backend)
+# DNS (example medprep.study):
+#   A     @      → EC2 public IP
+#   A     www    → EC2 public IP   (or CNAME www → medprep.study)
+#   CNAME api    → medprep.study
+#   CNAME admin  → medprep.study
+#
+# Security group: TCP 80, 443 (close 3000/4000/5000 after nginx is live)
 #
 # Quick start:
-#   1. cp .env.docker.example .env
-#   2. Fill in secrets (JWT, OAuth, S3, SMTP, etc.)
-#   3. docker compose up -d --build
-#   4. Seed DB (first deploy only):
-#        docker compose exec backend node scripts/seed.js
+#   1. cp .env.docker.example .env  → set domain URLs + secrets
+#   2. docker compose up -d --build
+#   3. ./deploy/setup-ssl.sh admin@medprep.study
+#   4. docker compose exec backend node scripts/seed.js --clear  (first deploy)
 #
-# URLs:
-#   Frontend  → http://54.163.157.90:3000
-#   Admin     → http://54.163.157.90:4000
-#   API       → http://54.163.157.90:5000/api/v1
+# URLs (after SSL):
+#   https://medprep.study
+#   https://admin.medprep.study
+#   https://api.medprep.study/api/v1
 # =============================================================================
 
 services:
@@ -55,8 +59,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "5000:5000"
     env_file:
       - .env
     environment:
@@ -102,8 +104,6 @@ services:
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
         NEXT_PUBLIC_FACEBOOK_APP_ID: ${NEXT_PUBLIC_FACEBOOK_APP_ID:-}
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       PORT: 3000
       HOSTNAME: 0.0.0.0
@@ -120,8 +120,6 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
-    ports:
-      - "4000:4000"
     environment:
       PORT: 4000
       HOSTNAME: 0.0.0.0
@@ -130,6 +128,31 @@ services:
         condition: service_healthy
     networks:
       - medprep
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./deploy/certbot/conf:/etc/letsencrypt:ro
+      - ./deploy/certbot/www:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - admin
+      - backend
+    networks:
+      - medprep
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - ./deploy/certbot/conf:/etc/letsencrypt
+      - ./deploy/certbot/www:/var/www/certbot
+    profiles:
+      - certbot
 
 networks:
   medprep:
