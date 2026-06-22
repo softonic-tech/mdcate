@@ -1,25 +1,148 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Supported MCQ templates
+// ─────────────────────────────────────────────────────────────────────────────
+// 1) Legacy template (one item per line block):
+//      1. [EASY] Question stem
+//      A) Option text
+//      B) Option text
+//      Correct Answer: A
+//      Explanation: ...
+//
+// 2) "Q<n>." template used in the recent docx exports:
+//      Q1. (Year: Past 2017 | Chapter: X | Difficulty: Moderate)
+//      Question stem ...
+//      A. Option text
+//      B. Option text
+//      C. Option text
+//      D. Option text
+//      Answer: AIDS                ← answer can be a letter OR the answer text
+//      Explanation: ...            ← or "Answer: B. AIDS"
+//
+//    Metadata can also be pipe-delimited without parentheses, e.g.
+//      Q12. Chapter: X | Topic: Y | Difficulty: Easy | Past-paper style
+//
+// Both templates flow through `parseStructuredMcqs`. If the input is run-on
+// text (no line breaks survived the extraction), the regex-based fuzzy parser
+// at the bottom picks up the same patterns.
+
 const SECTION_LINE = /^SECTION\s+\d+/i;
-const QUESTION_LINE = /^(\d+)\.\s*\[(EASY|MODERATE|MEDIUM|HARD|HARDER)\]\s*(.+)$/i;
-const OPTION_LINE = /^([A-Z])\)\s*(.+)$/;
-const CORRECT_LINE = /^Correct Answer:\s*([A-Z])\)?/i;
-const EXPLANATION_LINE = /^Explanation:\s*(.*)$/i;
+
+// Legacy template
+const LEGACY_QUESTION_LINE =
+  /^(\d+)\.\s*\[(EASY|MODERATE|MEDIUM|HARD|HARDER)\]\s*(.+)$/i;
+const LEGACY_OPTION_LINE = /^([A-Z])\)\s*(.+)$/;
+const LEGACY_CORRECT_LINE = /^Correct Answer:\s*([A-Z])\)?/i;
+
+// Shared / Q-template lines
+const Q_HEADER_LINE = /^Q\s*(\d+)\.?\s*(.*)$/i;
+const OPTION_LINE = /^([A-Z])\s*[.)]\s*(.+)$/;
+const ANSWER_LINE = /^Answer\s*:\s*(.+)$/i;
+const EXPLANATION_LINE = /^Explanation\s*:\s*(.*)$/i;
+const ANSWER_LETTER_PREFIX = /^([A-Z])\s*[.)]\s*(.*)$/i;
+
+// Metadata helpers
+const METADATA_KEY_HEAD =
+  /^(Chapter|Topic|Difficulty|Year|Source|Type|Section|Class|Subject|Board)\s*:/i;
+const DIFFICULTY_TAG = /\bDifficulty\s*:\s*([A-Za-z]+)/i;
+const YEAR_TAG = /\bYear\s*:\s*([A-Za-z]+)?\s*(\d{4})/i;
+const TOPIC_TAG = /\bTopic\s*:\s*([^|)]+?)(?:\s*\||\s*\)|$)/i;
 
 export const mapDifficulty = (raw) => {
   const u = String(raw || "").toUpperCase();
   if (u === "EASY") return "easy";
-  if (u === "MODERATE" || u === "MEDIUM") return "medium";
-  if (u === "HARD" || u === "HARDER") return "hard";
+  if (u === "MODERATE" || u === "MEDIUM" || u === "INTERMEDIATE") return "medium";
+  if (u === "HARD" || u === "HARDER" || u === "DIFFICULT") return "hard";
   return "medium";
 };
 
 export const textToLines = (rawText = "") =>
-  rawText
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  String(rawText || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim());
 
-export const parseStructuredMcqs = (rawText = "") => {
-  const lines = textToLines(rawText);
+const normalizeForCompare = (s) =>
+  String(s || "")
+    .toLowerCase()
+    .replace(/[\s\u00a0]+/g, " ")
+    .replace(/[\u2018\u2019\u201c\u201d]/g, "'")
+    .trim();
+
+const stripTrailingPunctuation = (s) =>
+  String(s || "").replace(/[\s.,;:!?)\]]+$/g, "");
+
+// Find the option that matches the free-text answer.
+// Tries exact normalized match, then "starts-with", then loose substring.
+const findCorrectIndex = (options, answer) => {
+  if (answer.letter) {
+    const idx = options.findIndex((o) => o.letter === answer.letter);
+    if (idx !== -1) return idx;
+  }
+
+  const target = normalizeForCompare(stripTrailingPunctuation(answer.text));
+  if (!target) return -1;
+
+  const normalized = options.map((o) =>
+    normalizeForCompare(stripTrailingPunctuation(o.text))
+  );
+
+  let idx = normalized.findIndex((opt) => opt === target);
+  if (idx !== -1) return idx;
+
+  idx = normalized.findIndex(
+    (opt) => opt && (opt.startsWith(target) || target.startsWith(opt))
+  );
+  if (idx !== -1) return idx;
+
+  idx = normalized.findIndex(
+    (opt) => opt && (opt.includes(target) || target.includes(opt))
+  );
+  return idx;
+};
+
+const extractMetadataFromHeader = (headerRest) => {
+  const trimmed = String(headerRest || "").trim();
+  if (!trimmed) return { metadata: "", remaining: "" };
+
+  if (trimmed.startsWith("(")) {
+    const close = trimmed.indexOf(")");
+    if (close > 0) {
+      return {
+        metadata: trimmed.slice(1, close).trim(),
+        remaining: trimmed.slice(close + 1).trim(),
+      };
+    }
+  }
+
+  if (METADATA_KEY_HEAD.test(trimmed)) {
+    return { metadata: trimmed, remaining: "" };
+  }
+
+  return { metadata: "", remaining: trimmed };
+};
+
+const metadataToFields = (metadata) => {
+  const meta = String(metadata || "");
+  const difficultyRaw = (meta.match(DIFFICULTY_TAG) || [])[1] || "medium";
+  const yearMatch = meta.match(YEAR_TAG);
+  const isPastPaper = Boolean(yearMatch && /past/i.test(yearMatch[1] || ""));
+  // Only persist paperYear when the metadata actually marks it as a past paper.
+  // Tags like "Year: Practice 2026" use the year as a label, not an exam year.
+  const paperYear = isPastPaper && yearMatch ? Number(yearMatch[2]) || null : null;
+  const topicMatch = meta.match(TOPIC_TAG);
+  const tags = topicMatch ? [topicMatch[1].trim()].filter(Boolean) : [];
+
+  return {
+    difficulty: mapDifficulty(difficultyRaw),
+    isPastPaper,
+    paperYear,
+    tags,
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy line-based parser
+// ─────────────────────────────────────────────────────────────────────────────
+const parseLegacyFormat = (lines) => {
   const questions = [];
   const errors = [];
   let i = 0;
@@ -31,7 +154,7 @@ export const parseStructuredMcqs = (rawText = "") => {
       continue;
     }
 
-    const qm = line.match(QUESTION_LINE);
+    const qm = line.match(LEGACY_QUESTION_LINE);
     if (!qm) {
       i += 1;
       continue;
@@ -43,7 +166,7 @@ export const parseStructuredMcqs = (rawText = "") => {
     const optionLetters = [];
 
     while (i < lines.length) {
-      const om = lines[i].match(OPTION_LINE);
+      const om = lines[i].match(LEGACY_OPTION_LINE);
       if (!om) break;
       optionLetters.push(om[1].toUpperCase());
       options.push(om[2].trim());
@@ -55,17 +178,20 @@ export const parseStructuredMcqs = (rawText = "") => {
       continue;
     }
 
-    if (i >= lines.length || !CORRECT_LINE.test(lines[i])) {
+    if (i >= lines.length || !LEGACY_CORRECT_LINE.test(lines[i])) {
       errors.push({ line: text.slice(0, 60), reason: "missing Correct Answer line" });
       continue;
     }
 
-    const cm = lines[i].match(CORRECT_LINE);
+    const cm = lines[i].match(LEGACY_CORRECT_LINE);
     const letter = cm[1].toUpperCase();
     i += 1;
     const correctIndex = optionLetters.indexOf(letter);
     if (correctIndex === -1) {
-      errors.push({ line: text.slice(0, 60), reason: `correct letter ${letter} not in options` });
+      errors.push({
+        line: text.slice(0, 60),
+        reason: `correct letter ${letter} not in options`,
+      });
       continue;
     }
 
@@ -83,10 +209,306 @@ export const parseStructuredMcqs = (rawText = "") => {
       explanation,
       difficulty: mapDifficulty(diffRaw),
       tags: [],
+      isPastPaper: false,
+      paperYear: null,
     });
   }
 
   return { questions, errors };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Q<n>. line-based parser (handles the new docx exports)
+// ─────────────────────────────────────────────────────────────────────────────
+const parseQHeaderFormat = (lines) => {
+  const questions = [];
+  const errors = [];
+  let i = 0;
+
+  const advanceToNextHeader = () => {
+    while (i < lines.length && !Q_HEADER_LINE.test(lines[i])) i += 1;
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line) {
+      i += 1;
+      continue;
+    }
+
+    const qm = line.match(Q_HEADER_LINE);
+    if (!qm) {
+      i += 1;
+      continue;
+    }
+
+    const headerRest = qm[2] || "";
+    const { metadata: headerMeta, remaining: stemFromHeader } =
+      extractMetadataFromHeader(headerRest);
+    let metadata = headerMeta;
+    const stemParts = [];
+    if (stemFromHeader) stemParts.push(stemFromHeader);
+    i += 1;
+
+    // Collect stem lines until we hit options / answer / next question.
+    while (i < lines.length) {
+      const next = lines[i];
+      if (!next) {
+        i += 1;
+        continue;
+      }
+      if (
+        Q_HEADER_LINE.test(next) ||
+        OPTION_LINE.test(next) ||
+        ANSWER_LINE.test(next) ||
+        EXPLANATION_LINE.test(next)
+      ) {
+        break;
+      }
+      if (stemParts.length === 0 && METADATA_KEY_HEAD.test(next)) {
+        metadata += (metadata ? " | " : "") + next;
+        i += 1;
+        continue;
+      }
+      stemParts.push(next);
+      i += 1;
+    }
+
+    // Collect options (allow wrap-around lines for long option text).
+    const options = [];
+    while (i < lines.length) {
+      const next = lines[i];
+      if (!next) {
+        i += 1;
+        continue;
+      }
+      if (
+        Q_HEADER_LINE.test(next) ||
+        ANSWER_LINE.test(next) ||
+        EXPLANATION_LINE.test(next)
+      ) {
+        break;
+      }
+      const om = next.match(OPTION_LINE);
+      if (om) {
+        options.push({ letter: om[1].toUpperCase(), text: om[2].trim() });
+        i += 1;
+        continue;
+      }
+      if (options.length > 0) {
+        const last = options[options.length - 1];
+        last.text = `${last.text} ${next}`.trim();
+        i += 1;
+        continue;
+      }
+      break;
+    }
+
+    if (options.length < 2) {
+      errors.push({
+        line: stemParts.join(" ").slice(0, 60),
+        reason: "fewer than 2 options",
+      });
+      advanceToNextHeader();
+      continue;
+    }
+
+    while (i < lines.length && !lines[i]) i += 1;
+
+    const answer = { letter: null, text: "" };
+    if (i < lines.length && ANSWER_LINE.test(lines[i])) {
+      const am = lines[i].match(ANSWER_LINE);
+      let body = am[1].trim();
+      i += 1;
+      while (i < lines.length) {
+        const next = lines[i];
+        if (!next) {
+          i += 1;
+          continue;
+        }
+        if (
+          Q_HEADER_LINE.test(next) ||
+          EXPLANATION_LINE.test(next) ||
+          OPTION_LINE.test(next)
+        ) {
+          break;
+        }
+        body += " " + next;
+        i += 1;
+      }
+      const prefix = body.match(ANSWER_LETTER_PREFIX);
+      if (prefix) {
+        answer.letter = prefix[1].toUpperCase();
+        answer.text = prefix[2].trim();
+      } else {
+        answer.text = body.trim();
+      }
+    } else {
+      errors.push({
+        line: stemParts.join(" ").slice(0, 60),
+        reason: "missing Answer line",
+      });
+      advanceToNextHeader();
+      continue;
+    }
+
+    while (i < lines.length && !lines[i]) i += 1;
+
+    let explanation = "";
+    if (i < lines.length && EXPLANATION_LINE.test(lines[i])) {
+      const em = lines[i].match(EXPLANATION_LINE);
+      explanation = (em[1] || "").trim();
+      i += 1;
+      while (i < lines.length) {
+        const next = lines[i];
+        if (!next) {
+          i += 1;
+          continue;
+        }
+        if (Q_HEADER_LINE.test(next)) break;
+        explanation += " " + next;
+        i += 1;
+      }
+    }
+
+    const correctIndex = findCorrectIndex(options, answer);
+    if (correctIndex === -1) {
+      errors.push({
+        line: stemParts.join(" ").slice(0, 60),
+        reason: "could not match Answer to any option",
+      });
+      continue;
+    }
+
+    const { difficulty, isPastPaper, paperYear, tags } = metadataToFields(metadata);
+
+    questions.push({
+      text: stemParts.join(" ").trim(),
+      options: options.map((o) => o.text),
+      correctAnswer: correctIndex,
+      explanation,
+      difficulty,
+      tags,
+      isPastPaper,
+      paperYear,
+    });
+  }
+
+  return { questions, errors };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Regex-based fallback for "run-on" text where no line breaks survived.
+// Splits on Q<n>. boundaries and pulls out A.B.C.D and Answer/Explanation
+// using the marker words themselves as anchors.
+// ─────────────────────────────────────────────────────────────────────────────
+const FUZZY_QUESTION_SPLIT = /\bQ\s*\d+\.?\s+/g;
+// Lazy capture between markers; we don't require whitespace before the marker
+// because mammoth collapses it in the raw extraction.
+const FUZZY_BLOCK_REGEX =
+  /^([\s\S]*?)A\s*[.)]\s*([\s\S]+?)B\s*[.)]\s*([\s\S]+?)C\s*[.)]\s*([\s\S]+?)D\s*[.)]\s*([\s\S]+?)(?:E\s*[.)]\s*([\s\S]+?))?Answer\s*:\s*([\s\S]+?)(?:Explanation\s*:\s*([\s\S]+))?$/i;
+
+const splitFuzzyBlocks = (text) => {
+  const matches = [...String(text || "").matchAll(FUZZY_QUESTION_SPLIT)];
+  if (matches.length === 0) return [];
+  const blocks = [];
+  for (let k = 0; k < matches.length; k += 1) {
+    const start = matches[k].index + matches[k][0].length;
+    const end = k + 1 < matches.length ? matches[k + 1].index : text.length;
+    blocks.push(text.slice(start, end).trim());
+  }
+  return blocks;
+};
+
+const parseFuzzyFormat = (text) => {
+  const blocks = splitFuzzyBlocks(text);
+  const questions = [];
+  const errors = [];
+
+  for (const block of blocks) {
+    const cleaned = block.replace(/\s+/g, " ").trim();
+    const m = cleaned.match(FUZZY_BLOCK_REGEX);
+    if (!m) {
+      errors.push({ line: cleaned.slice(0, 60), reason: "fuzzy regex did not match" });
+      continue;
+    }
+
+    const [, stemRaw, optA, optB, optC, optD, optE, answerRaw, explanationRaw] = m;
+
+    let stem = stemRaw.trim();
+    let metadata = "";
+    if (stem.startsWith("(")) {
+      const close = stem.indexOf(")");
+      if (close > 0) {
+        metadata = stem.slice(1, close).trim();
+        stem = stem.slice(close + 1).trim();
+      }
+    } else if (METADATA_KEY_HEAD.test(stem)) {
+      // Find transition where metadata ends and question stem starts.
+      const transition = stem.match(/[a-z][A-Z]/);
+      if (transition) {
+        const idx = transition.index + 1;
+        metadata = stem.slice(0, idx).trim();
+        stem = stem.slice(idx).trim();
+      }
+    }
+
+    const options = [
+      { letter: "A", text: optA.trim() },
+      { letter: "B", text: optB.trim() },
+      { letter: "C", text: optC.trim() },
+      { letter: "D", text: optD.trim() },
+    ];
+    if (optE) options.push({ letter: "E", text: optE.trim() });
+
+    const answer = { letter: null, text: "" };
+    const prefix = answerRaw.trim().match(ANSWER_LETTER_PREFIX);
+    if (prefix) {
+      answer.letter = prefix[1].toUpperCase();
+      answer.text = prefix[2].trim();
+    } else {
+      answer.text = answerRaw.trim();
+    }
+
+    const correctIndex = findCorrectIndex(options, answer);
+    if (correctIndex === -1) {
+      errors.push({
+        line: stem.slice(0, 60),
+        reason: "could not match Answer to any option",
+      });
+      continue;
+    }
+
+    const { difficulty, isPastPaper, paperYear, tags } = metadataToFields(metadata);
+
+    questions.push({
+      text: stem,
+      options: options.map((o) => o.text),
+      correctAnswer: correctIndex,
+      explanation: (explanationRaw || "").trim(),
+      difficulty,
+      tags,
+      isPastPaper,
+      paperYear,
+    });
+  }
+
+  return { questions, errors };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
+export const parseStructuredMcqs = (rawText = "") => {
+  const lines = textToLines(rawText);
+
+  const legacy = parseLegacyFormat(lines);
+  if (legacy.questions.length > 0) return legacy;
+
+  const qFormat = parseQHeaderFormat(lines);
+  if (qFormat.questions.length > 0) return qFormat;
+
+  return parseFuzzyFormat(rawText);
 };
 
 export const normalizeAiMcq = (item) => {
@@ -114,14 +536,16 @@ export const normalizeAiMcq = (item) => {
     explanation: String(item?.explanation || "").trim(),
     difficulty: mapDifficulty(item?.difficulty || "medium"),
     tags: Array.isArray(item?.tags) ? item.tags.map(String) : [],
+    isPastPaper: Boolean(item?.isPastPaper),
+    paperYear: item?.paperYear ? Number(item.paperYear) || null : null,
   };
 };
 
 export const dedupeMcqs = (questions) => {
   const seen = new Set();
   return questions.filter((question) => {
-    const key = question.text.toLowerCase();
-    if (seen.has(key)) return false;
+    const key = normalizeForCompare(question.text);
+    if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });

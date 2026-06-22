@@ -14,8 +14,9 @@ import {
 import { bulkCreateQuestionsService } from "./question.service.js";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
-const MAX_AI_CHUNK = 10000;
+const MAX_AI_CHUNK = 8000;
 const MIN_STRUCTURED_COUNT = 3;
+const AI_MAX_TOKENS = 4000;
 
 const DOCX_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -30,6 +31,35 @@ const buildOpenAiClient = () => {
   return new OpenAI({ apiKey: env.OPENAI_API_KEY });
 };
 
+// mammoth.extractRawText collapses soft line breaks (Shift+Enter) inside a paragraph,
+// which is exactly how many MCQ docx exports lay out one full question per paragraph.
+// Converting via convertToHtml lets us preserve <br/> as real newlines so the
+// structured parser can see one option per line.
+const decodeHtmlEntities = (str) =>
+  String(str || "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x?([0-9a-fA-F]+);/g, (_, code) =>
+      String.fromCodePoint(parseInt(code, code.startsWith?.("x") ? 16 : 10))
+    );
+
+const htmlToPlainText = (html) =>
+  decodeHtmlEntities(
+    String(html || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|h\d|li|tr|div|section|article)>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+  )
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
 export const extractTextFromUpload = async (file) => {
   if (!file?.buffer?.length) {
     throw ApiError.badRequest("No file uploaded.");
@@ -42,8 +72,8 @@ export const extractTextFromUpload = async (file) => {
   const mime = file.mimetype || "";
 
   if (DOCX_TYPES.has(mime) || file.originalname?.toLowerCase().endsWith(".docx")) {
-    const { value } = await mammoth.extractRawText({ buffer: file.buffer });
-    return { text: value || "", fileType: "docx" };
+    const { value } = await mammoth.convertToHtml({ buffer: file.buffer });
+    return { text: htmlToPlainText(value), fileType: "docx" };
   }
 
   if (PDF_TYPES.has(mime) || file.originalname?.toLowerCase().endsWith(".pdf")) {
@@ -73,15 +103,49 @@ export const validateImportTargets = async (subjectId, chapterId) => {
   return { subject, chapter };
 };
 
+// Split on question boundaries (Q1., Q2., ...) so chunks never tear a question
+// in half. Falls back to a hard split when a single question is larger than
+// MAX_AI_CHUNK (unusual but possible for long explanations).
 const chunkTextForAi = (text) => {
   if (text.length <= MAX_AI_CHUNK) return [text];
 
-  const chunks = [];
-  let start = 0;
-  while (start < text.length) {
-    chunks.push(text.slice(start, start + MAX_AI_CHUNK));
-    start += MAX_AI_CHUNK - 400;
+  const boundaryRegex = /\n\s*(?=(?:Q\s*\d+\.?\s|\d+\.\s*\[))/g;
+  const segments = text.split(boundaryRegex).filter(Boolean);
+
+  // If we couldn't find structural boundaries, fall back to overlapping hard splits.
+  if (segments.length <= 1) {
+    const chunks = [];
+    let start = 0;
+    while (start < text.length) {
+      chunks.push(text.slice(start, start + MAX_AI_CHUNK));
+      start += MAX_AI_CHUNK - 400;
+    }
+    return chunks;
   }
+
+  const chunks = [];
+  let buffer = "";
+  for (const segment of segments) {
+    if (buffer.length + segment.length + 1 > MAX_AI_CHUNK && buffer) {
+      chunks.push(buffer);
+      buffer = "";
+    }
+    if (segment.length > MAX_AI_CHUNK) {
+      // Single huge segment – hard split it.
+      if (buffer) {
+        chunks.push(buffer);
+        buffer = "";
+      }
+      let start = 0;
+      while (start < segment.length) {
+        chunks.push(segment.slice(start, start + MAX_AI_CHUNK));
+        start += MAX_AI_CHUNK - 400;
+      }
+      continue;
+    }
+    buffer = buffer ? `${buffer}\n${segment}` : segment;
+  }
+  if (buffer) chunks.push(buffer);
   return chunks;
 };
 
@@ -96,6 +160,7 @@ const parseMcqsWithAi = async (text) => {
     const response = await client.chat.completions.create({
       model: env.OPENAI_MODEL,
       temperature: 0.1,
+      max_tokens: AI_MAX_TOKENS,
       response_format: { type: "json_object" },
       messages: [
         {

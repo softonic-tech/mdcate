@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
@@ -84,6 +84,10 @@ const validateUrlInput = (rawUrl = "") => {
 
 const statusClass = (status) => `vs-status vs-status--${status || "pending"}`;
 
+const POLL_INTERVAL_MS = 4000;
+const isPending = (video) =>
+  video?.status === "pending" || video?.status === "processing";
+
 export default function VideoSummarizerPage() {
   const [videos, setVideos] = useState([]);
   const [url, setUrl] = useState("");
@@ -91,6 +95,12 @@ export default function VideoSummarizerPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [revealedAnswers, setRevealedAnswers] = useState({});
+
+  // Refs let the single stable poller read the latest state without recreating
+  // the interval (or fighting useEffect dependency churn) on every refresh.
+  const hasPendingRef = useRef(false);
+  const selectedRef = useRef(null);
+  const inFlightRef = useRef(false);
 
   const urlCheck = useMemo(() => validateUrlInput(url), [url]);
 
@@ -112,8 +122,15 @@ export default function VideoSummarizerPage() {
       const response = await getVideo(id);
       const video = response?.data;
       if (video) {
-        setSelected(video);
-        setRevealedAnswers({});
+        setSelected((current) => {
+          // Avoid clobbering the user's revealed-answers state when polling
+          // returns the same logical entity.
+          if (current?._id !== video._id) {
+            return video;
+          }
+          return { ...current, ...video };
+        });
+        if (!silent) setRevealedAnswers({});
       }
       return video;
     } catch (error) {
@@ -127,21 +144,31 @@ export default function VideoSummarizerPage() {
   }, [loadVideos]);
 
   useEffect(() => {
-    const pendingIds = videos
-      .filter((video) => video.status === "pending" || video.status === "processing")
-      .map((video) => video._id);
+    hasPendingRef.current = videos.some(isPending);
+  }, [videos]);
 
-    if (pendingIds.length === 0) return undefined;
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
 
-    const interval = setInterval(async () => {
-      await loadVideos();
-      if (selected && pendingIds.includes(selected._id)) {
-        await loadVideoDetails(selected._id, true);
+  useEffect(() => {
+    const tick = async () => {
+      if (!hasPendingRef.current || inFlightRef.current) return;
+      inFlightRef.current = true;
+      try {
+        await loadVideos();
+        const sel = selectedRef.current;
+        if (sel && isPending(sel)) {
+          await loadVideoDetails(sel._id, true);
+        }
+      } finally {
+        inFlightRef.current = false;
       }
-    }, 4000);
+    };
 
-    return () => clearInterval(interval);
-  }, [videos, selected, loadVideos, loadVideoDetails]);
+    const id = setInterval(tick, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [loadVideos, loadVideoDetails]);
 
   const handleSubmit = async (event) => {
     event?.preventDefault();

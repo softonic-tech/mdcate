@@ -66,6 +66,24 @@ export const toUserFriendlyVideoError = (error) => {
   }
 
   if (
+    raw.includes("audio_too_large") ||
+    raw.includes("file is too large") ||
+    raw.includes("maximum content size") ||
+    (raw.includes("25mb") && raw.includes("limit"))
+  ) {
+    return "This video's audio is too long for transcription. Please try a video under ~2 hours, or use one that has captions enabled.";
+  }
+
+  if (
+    raw.includes("job_timeout") ||
+    raw.includes("ffmpeg_timeout") ||
+    raw.includes("etimedout") ||
+    raw.includes("signal") && raw.includes("sigterm")
+  ) {
+    return "This video took too long to process and was cancelled. Try a shorter video or one with captions enabled.";
+  }
+
+  if (
     raw.includes("postprocessing") ||
     raw.includes("audio conversion failed") ||
     raw.includes("max-downloads") ||

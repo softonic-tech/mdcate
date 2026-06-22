@@ -71,12 +71,12 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:5000/api/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:5000/api/v1/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 60s
+      start_period: 90s
 
   frontend:
     build:
@@ -103,9 +103,24 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       PORT: 4000
       HOSTNAME: 0.0.0.0
+      # Server-side calls from the admin Next.js API routes (e.g. /api/upload/s3-presign
+      # → /auth/me token verification) go over the internal Docker network so they don't
+      # hit nginx/SSL and don't need the public domain to be reachable.
+      API_URL: http://backend:5000/api/v1
+      # NEXT_PUBLIC_API_URL is also exported at runtime so server-side fallbacks resolve
+      # even though it's already baked into the client bundle at build time.
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      # S3 credentials for the presign route (admin/src/app/api/upload/s3-presign/route.js).
+      # The route accepts either AWS_* or S3_* names; AWS_* is the canonical project name.
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_BUCKET: ${AWS_BUCKET}
     depends_on:
       backend:
         condition: service_healthy

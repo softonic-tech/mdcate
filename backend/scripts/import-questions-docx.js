@@ -1,12 +1,21 @@
 /**
- * Import MCQs from a .docx file (paragraphs like: "N. [EASY] ...", A)-D), Correct Answer, Explanation).
+ * Import MCQs from a .docx file.
+ *
+ * Supported templates (see backend/utils/mcqParse.util.js for full grammar):
+ *   - Legacy: "N. [EASY] ...", "A) ...", "Correct Answer: A", "Explanation: ..."
+ *   - Q-template (used by recent exports):
+ *       "Q1. (Year: Past 2017 | Chapter: X | Difficulty: Moderate)"
+ *       "Question stem..."
+ *       "A. ..." "B. ..." "C. ..." "D. ..."
+ *       "Answer: <letter or full answer text>"
+ *       "Explanation: ..."
  *
  * Usage:
  *   node scripts/import-questions-docx.js "<path-to.docx>" --subject-id <mongoId> --chapter-id <mongoId>
  *   node scripts/import-questions-docx.js "<path-to.docx>" --subject "Biology" --board KPK --chapter "Respiration"
  *
  * Options:
- *   --dry-run     Parse and print counts only (no DB writes)
+ *   --dry-run          Parse and print counts only (no DB writes)
  *   --create-chapter   With --subject/--chapter, create chapter if missing
  */
 
@@ -19,6 +28,7 @@ import mammoth from "mammoth";
 import Subject from "../models/subject.model.js";
 import Chapter from "../models/chapter.model.js";
 import { bulkCreateQuestionsService } from "../services/question.service.js";
+import { parseStructuredMcqs } from "../utils/mcqParse.util.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,96 +37,42 @@ dotenv.config({ path: join(__dirname, "../.env") });
 
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/medprep-study";
 
+const LEGACY_QUESTION_LINE =
+  /^(\d+)\.\s*\[(EASY|MODERATE|MEDIUM|HARD|HARDER)\]\s*(.+)$/i;
+const Q_HEADER_LINE = /^Q\s*(\d+)\.?\s*(.*)$/i;
 const SECTION_LINE = /^SECTION\s+\d+/i;
-const QUESTION_LINE = /^(\d+)\.\s*\[(EASY|MODERATE|MEDIUM|HARD|HARDER)\]\s*(.+)$/i;
-const OPTION_LINE = /^([A-Z])\)\s*(.+)$/;
-const CORRECT_LINE = /^Correct Answer:\s*([A-Z])\)?/i;
-const EXPLANATION_LINE = /^Explanation:\s*(.*)$/i;
 
-function mapDifficulty(raw) {
-  const u = raw.toUpperCase();
-  if (u === "EASY") return "easy";
-  if (u === "MODERATE" || u === "MEDIUM") return "medium";
-  if (u === "HARD" || u === "HARDER") return "hard";
-  return "medium";
-}
+const decodeHtmlEntities = (str) =>
+  String(str || "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
 
-function parseDocxLines(lines) {
-  const questions = [];
-  const errors = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-    if (!line || SECTION_LINE.test(line)) {
-      i += 1;
-      continue;
-    }
-
-    const qm = line.match(QUESTION_LINE);
-    if (!qm) {
-      i += 1;
-      continue;
-    }
-
-    const [, , diffRaw, text] = qm;
-    i += 1;
-    const options = [];
-    const optionLetters = [];
-
-    while (i < lines.length) {
-      const om = lines[i].match(OPTION_LINE);
-      if (!om) break;
-      optionLetters.push(om[1].toUpperCase());
-      options.push(om[2].trim());
-      i += 1;
-    }
-
-    if (options.length < 2) {
-      errors.push({ line: text.slice(0, 60), reason: "fewer than 2 options" });
-      continue;
-    }
-
-    if (i >= lines.length || !CORRECT_LINE.test(lines[i])) {
-      errors.push({ line: text.slice(0, 60), reason: "missing Correct Answer line" });
-      continue;
-    }
-
-    const cm = lines[i].match(CORRECT_LINE);
-    const letter = cm[1].toUpperCase();
-    i += 1;
-    const correctIndex = optionLetters.indexOf(letter);
-    if (correctIndex === -1) {
-      errors.push({ line: text.slice(0, 60), reason: `correct letter ${letter} not in options` });
-      continue;
-    }
-
-    let explanation = "";
-    if (i < lines.length && EXPLANATION_LINE.test(lines[i])) {
-      const em = lines[i].match(EXPLANATION_LINE);
-      explanation = (em[1] || "").trim();
-      i += 1;
-    }
-
-    questions.push({
-      text: text.trim(),
-      options,
-      correctAnswer: correctIndex,
-      explanation,
-      difficulty: mapDifficulty(diffRaw),
-    });
-  }
-
-  return { questions, errors };
-}
+const htmlToPlainText = (html) =>
+  decodeHtmlEntities(
+    String(html || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|h\d|li|tr|div|section|article)>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+  )
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
 /** Compares on-screen question numbers in the file vs how many blocks actually exist. */
 function reportDocxNumbering(lines) {
   const nums = [];
   for (const line of lines) {
     if (SECTION_LINE.test(line)) continue;
-    const m = line.match(QUESTION_LINE);
-    if (m) nums.push(Number(m[1]));
+    const legacy = line.match(LEGACY_QUESTION_LINE);
+    const newFormat = line.match(Q_HEADER_LINE);
+    if (legacy) nums.push(Number(legacy[1]));
+    else if (newFormat) nums.push(Number(newFormat[1]));
   }
   if (nums.length === 0) return;
 
@@ -134,22 +90,19 @@ function reportDocxNumbering(lines) {
 
   console.log("\n── Numbering in the Word file (not the database) ──");
   console.log(
-    `Found ${nums.length} question lines with labels from ${min} to ${max}. ` +
-      `Labels ${min}–${max} are not consecutive: ${missing.length} numbers never appear in the document.`
+    `Found ${nums.length} question headers labelled ${min} to ${max}. ` +
+      `${missing.length} numbers in that range never appear in the document.`
   );
   if (dups.length) {
     console.log(`Duplicate labels in the file (same Q# twice): ${dups.map(([n, c]) => `${n}×${c}`).join(", ")}`);
     console.log("  (Importer keeps both blocks; Mongo may skip one if text+chapter match exactly.)");
   }
-  if (missing.length <= 25) {
+  if (missing.length && missing.length <= 25) {
     console.log(`Missing labels: ${missing.join(", ")}`);
-  } else {
+  } else if (missing.length) {
     console.log(`First missing labels: ${missing.slice(0, 20).join(", ")} … (+${missing.length - 20} more)`);
   }
-  console.log(
-    "Section headings such as “(61–240)” are only titles—questions must be typed under them. " +
-      "This file does not contain ~250 full MCQ blocks.\n"
-  );
+  console.log();
 }
 
 function parseArgs(argv) {
@@ -243,15 +196,13 @@ async function main() {
   }
 
   const filePath = resolve(process.cwd(), args.file);
-  const { value: raw } = await mammoth.extractRawText({ path: filePath });
-  const lines = raw
-    .split(/\n+/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const { value: html } = await mammoth.convertToHtml({ path: filePath });
+  const text = htmlToPlainText(html);
+  const lines = text.split(/\r?\n/).map((l) => l.trim());
 
   reportDocxNumbering(lines);
 
-  const { questions: parsed, errors } = parseDocxLines(lines);
+  const { questions: parsed, errors } = parseStructuredMcqs(text);
   console.log(`Parsed ${parsed.length} valid MCQ blocks (${errors.length} malformed blocks skipped)`);
   if (errors.length && errors.length <= 20) {
     errors.forEach((e) => console.warn(`  skip: ${e.reason} — “${e.line}…”`));
@@ -277,7 +228,7 @@ async function main() {
       ...q,
       subjectId,
       chapterId,
-      tags: [],
+      tags: q.tags || [],
     }));
 
     const result = await bulkCreateQuestionsService(payload);

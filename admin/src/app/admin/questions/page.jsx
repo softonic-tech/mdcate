@@ -370,7 +370,15 @@ export default function QuestionsPage() {
                 className="input-base w-full"
               />
               <p className="text-xs text-text-muted mt-1">
-                Structured template: <code>1. [EASY] Question</code>, <code>A) ...</code>, <code>Correct Answer: A</code>
+                Supported templates:
+                <br />
+                <code>Q1. (Year: Past 2017 | Chapter: X | Difficulty: Moderate)</code>{" "}
+                then <code>A. ...</code> <code>B. ...</code>{" "}
+                <code>Answer: AIDS</code> or <code>Answer: B. AIDS</code>,{" "}
+                <code>Explanation: ...</code>
+                <br />
+                or legacy <code>1. [EASY] Question</code>, <code>A) ...</code>,{" "}
+                <code>Correct Answer: A</code>
               </p>
             </div>
 

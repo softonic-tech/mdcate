@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import env from "./config/env.config.js";
+import { getDbHealth } from "./config/db.config.js";
 import errorHandler from "./middlewares/error.middleware.js";
 import { generalLimiter } from "./middlewares/rateLimiter.js";
 import ApiError from "./utils/ApiError.js";
@@ -62,8 +63,25 @@ if (env.NODE_ENV === "development") {
   });
 }
 
+// Liveness only — confirms the Node process is responsive. Used for
+// shallow uptime checks (e.g. Atlas Watchdog, simple ping monitors).
 app.get("/api/v1/health", (_req, res) => {
   res.json({ success: true, message: "medprep.study API is running" });
+});
+
+// Readiness — true health from the load balancer's perspective. Returns 503
+// when MongoDB is not connected, so nginx / Docker / k8s stop routing
+// traffic to this instance until it recovers. Backend Dockerfile and
+// docker-compose healthchecks point at this path.
+app.get("/api/v1/ready", (_req, res) => {
+  const db = getDbHealth();
+  if (db.connected) {
+    return res.json({ success: true, db });
+  }
+  return res
+    .status(503)
+    .set("Retry-After", "5")
+    .json({ success: false, message: "Database not ready", db });
 });
 
 app.use("/api/v1/auth", authRoutes);
