@@ -1,5 +1,6 @@
 import axios from "axios";
 import { YoutubeTranscript } from "youtube-transcript";
+import env from "../config/env.config.js";
 
 const YOUTUBE_ID_PATTERNS = [
   /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/,
@@ -43,7 +44,38 @@ const joinSegments = (segments = []) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const fetchTranscriptViaWorker = async (videoId) => {
+  if (!env.YOUTUBE_WORKER_URL) return null;
+
+  for (const lang of TRANSCRIPT_LANG_PRIORITY) {
+    try {
+      const url = new URL(env.YOUTUBE_WORKER_URL);
+      url.searchParams.set("videoId", videoId);
+      if (lang) url.searchParams.set("lang", lang);
+
+      const headers = { "Content-Type": "application/json" };
+      if (env.YOUTUBE_WORKER_SECRET) {
+        headers["Authorization"] = `Bearer ${env.YOUTUBE_WORKER_SECRET}`;
+      }
+
+      const resp = await fetch(url.toString(), { headers, signal: AbortSignal.timeout(15000) });
+      if (!resp.ok) continue;
+
+      const data = await resp.json();
+      if (data?.transcript) return data.transcript;
+    } catch {
+      // Try next lang variant.
+    }
+  }
+
+  return null;
+};
+
 export const fetchYoutubeTranscript = async (videoId) => {
+  // Try Cloudflare Worker proxy first — bypasses EC2 IP bot detection.
+  const workerTranscript = await fetchTranscriptViaWorker(videoId);
+  if (workerTranscript) return workerTranscript;
+
   let lastError;
   for (const lang of TRANSCRIPT_LANG_PRIORITY) {
     try {

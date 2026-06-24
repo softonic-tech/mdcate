@@ -78,6 +78,12 @@ const env = {
   /** Netscape-format cookies.txt for yt-dlp (YouTube bot checks on datacenter IPs) */
   YTDLP_COOKIES_FILE: process.env.YTDLP_COOKIES_FILE || "",
   YTDLP_EXTRACTOR_ARGS: process.env.YTDLP_EXTRACTOR_ARGS || "",
+  /** HTTP/HTTPS/SOCKS proxy for yt-dlp (e.g. http://user:pass@host:port). Required on EC2. */
+  YTDLP_PROXY: process.env.YTDLP_PROXY || "",
+  /** Cloudflare Worker URL that proxies YouTube transcript fetching (free, avoids EC2 IP ban). */
+  YOUTUBE_WORKER_URL: process.env.YOUTUBE_WORKER_URL || "",
+  /** Bearer secret shared with the Cloudflare Worker (AUTH_SECRET Worker variable). */
+  YOUTUBE_WORKER_SECRET: process.env.YOUTUBE_WORKER_SECRET || "",
 
   JAZZCASH_MERCHANT_ID: process.env.JAZZCASH_MERCHANT_ID,
   JAZZCASH_PASSWORD: process.env.JAZZCASH_PASSWORD,

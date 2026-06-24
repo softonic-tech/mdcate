@@ -91,6 +91,10 @@ export const getYtdlpBaseOptions = () => {
     opts.cookies = cookiesFile;
   }
 
+  if (env.YTDLP_PROXY) {
+    opts.proxy = env.YTDLP_PROXY;
+  }
+
   return opts;
 };
 
