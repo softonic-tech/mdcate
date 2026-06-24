@@ -15,17 +15,8 @@ import {
   fetchYoutubeTranscript,
 } from "./youtube.util.js";
 import { transcribeAudioFile } from "../services/whisper.service.js";
+import { YTDLP_TIMEOUT_MS, ytdlpOptions } from "./ytdlp.util.js";
 
-const YTDLP_BASE_OPTIONS = {
-  noCheckCertificates: true,
-  noWarnings: true,
-  preferFreeFormats: true,
-};
-
-// Per-process timeout for any yt-dlp invocation. Anything taking longer than
-// this is almost certainly hung on a network/captcha issue and would otherwise
-// pin the worker indefinitely.
-const YTDLP_TIMEOUT_MS = 4 * 60 * 1000; // 4 min
 const FFMPEG_TIMEOUT_MS = 4 * 60 * 1000;
 const DIRECT_DOWNLOAD_TIMEOUT_MS = 3 * 60 * 1000;
 
@@ -36,11 +27,6 @@ const MAX_AUDIO_DOWNLOAD_BYTES = 80 * 1024 * 1024;
 // 24 kbps mono opus ≈ 10.8 MB/hr, enough for a ~2 hr lecture under Whisper's
 // 25 MB cap. We tighten further (16 kbps) on the second pass if needed.
 const COMPRESS_BITRATES = ["24k", "16k", "12k"];
-
-const ytdlpOptions = (extra = {}) => ({
-  ...YTDLP_BASE_OPTIONS,
-  ...extra,
-});
 
 const ytdlpExec = (url, options) =>
   youtubedl(url, options, { timeout: YTDLP_TIMEOUT_MS });

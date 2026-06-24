@@ -58,8 +58,13 @@ services:
       OAUTH_REDIRECT_URI: ${BACKEND_URL}/api/v1/auth/google/callback
       FACEBOOK_REDIRECT_URI: ${BACKEND_URL}/api/v1/auth/facebook/callback
       NOTES_UPLOAD_DIR: /app/uploads/notes
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      YTDLP_COOKIES_FILE: ${YTDLP_COOKIES_FILE:-}
+      YTDLP_EXTRACTOR_ARGS: ${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=android,web}
     volumes:
       - backend_uploads:/app/uploads
+      # Mount exported YouTube cookies (Netscape format) for video summarizer:
+      # - ./secrets/youtube-cookies.txt:/app/secrets/youtube-cookies.txt:ro
     depends_on:
       rabbitmq:
         condition: service_healthy

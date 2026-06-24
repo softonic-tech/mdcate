@@ -63,6 +63,23 @@ const env = {
 
   BACKEND_URL: process.env.BACKEND_URL,
 
+  /** Express trust proxy — required behind nginx/ALB in production for rate limiting */
+  TRUST_PROXY: (() => {
+    const v = process.env.TRUST_PROXY;
+    if (v === undefined || v === "") {
+      return (process.env.NODE_ENV || "development") === "production" ? 1 : false;
+    }
+    if (v === "true") return true;
+    if (v === "false") return false;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 1;
+  })(),
+
+  /** Netscape-format cookies.txt for yt-dlp (YouTube bot checks on datacenter IPs) */
+  YTDLP_COOKIES_FILE: process.env.YTDLP_COOKIES_FILE || "",
+  YTDLP_EXTRACTOR_ARGS:
+    process.env.YTDLP_EXTRACTOR_ARGS || "youtube:player_client=android,web",
+
   JAZZCASH_MERCHANT_ID: process.env.JAZZCASH_MERCHANT_ID,
   JAZZCASH_PASSWORD: process.env.JAZZCASH_PASSWORD,
   JAZZCASH_INTEGRITY_SALT: process.env.JAZZCASH_INTEGRITY_SALT,

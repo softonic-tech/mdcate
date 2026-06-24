@@ -10,6 +10,7 @@ import { initSocket } from "./websocket/socket.js";
 import { startWorkers } from "./jobs/index.js";
 import env from "./config/env.config.js";
 import { seedDefaultPlansService } from "./services/pricingPlan.service.js";
+import { logYtdlpProductionHint } from "./utils/ytdlp.util.js";
 
 const SHUTDOWN_TIMEOUT_MS = 15000;
 let shuttingDown = false;
@@ -26,6 +27,8 @@ const startServer = async () => {
   if (rabbitChannel) {
     await startWorkers();
   }
+
+  logYtdlpProductionHint();
 
   httpServer.listen(env.PORT, () => {
     console.log(`Server running on port ${env.PORT} [${env.NODE_ENV}]`);

@@ -97,12 +97,13 @@ export const toUserFriendlyVideoError = (error) => {
   if (
     raw.includes("private") ||
     raw.includes("sign in to confirm") ||
+    raw.includes("not a bot") ||
     raw.includes("login") ||
     raw.includes("members only") ||
     raw.includes("403") ||
     raw.includes("forbidden")
   ) {
-    return "This video appears to be private or restricted. Use a public link that plays without logging in.";
+    return "This video appears to be private, restricted, or blocked by YouTube from our server. Try a fully public video with captions enabled.";
   }
 
   if (raw.includes("video unavailable") || raw.includes("not available")) {

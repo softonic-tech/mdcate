@@ -44,6 +44,10 @@ import learningRoutes from "./routes/learning.routes.js";
 
 const app = express();
 
+if (env.TRUST_PROXY !== false) {
+  app.set("trust proxy", env.TRUST_PROXY);
+}
+
 app.use(helmet());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
