@@ -68,6 +68,13 @@ export const toUserFriendlyVideoError = (error) => {
     return "Video processing is misconfigured on the server (YouTube cookies path is a folder, not a file). Please contact support.";
   }
 
+  if (
+    raw.includes("read-only file system") ||
+    (raw.includes("errno 30") && raw.includes("cookies"))
+  ) {
+    return "Video processing hit a server configuration issue with YouTube cookies. Please contact support.";
+  }
+
   if (raw.includes("incorrect api key") || raw.includes("invalid_api_key")) {
     return "AI service authentication failed. Please contact support.";
   }
