@@ -64,7 +64,7 @@ services:
     volumes:
       - backend_uploads:/app/uploads
       # Mount exported YouTube cookies (Netscape format) for video summarizer:
-      # - ./secrets/youtube-cookies.txt:/app/secrets/youtube-cookies.txt:ro
+      - ./secrets/youtube-cookies.txt:/app/secrets/youtube-cookies.txt:ro
     depends_on:
       rabbitmq:
         condition: service_healthy
