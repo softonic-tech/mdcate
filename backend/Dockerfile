@@ -7,12 +7,19 @@ RUN apt-get update \
     ca-certificates \
     python3 \
     python-is-python3 \
+    wget \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
+
+# Replace stale bundled yt-dlp with the latest release (YouTube extractors change often).
+RUN rm -f /app/node_modules/youtube-dl-exec/bin/yt-dlp && \
+    wget -q https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+      -O /app/node_modules/youtube-dl-exec/bin/yt-dlp && \
+    chmod +x /app/node_modules/youtube-dl-exec/bin/yt-dlp
 
 COPY . .
 

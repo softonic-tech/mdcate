@@ -60,7 +60,7 @@ services:
       NOTES_UPLOAD_DIR: /app/uploads/notes
       TRUST_PROXY: ${TRUST_PROXY:-1}
       YTDLP_COOKIES_FILE: ${YTDLP_COOKIES_FILE:-}
-      YTDLP_EXTRACTOR_ARGS: ${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=android,web}
+      YTDLP_EXTRACTOR_ARGS: ${YTDLP_EXTRACTOR_ARGS:-}
     volumes:
       - backend_uploads:/app/uploads
       # Mount ./secrets/youtube-cookies.txt on the host (file must exist before first start)

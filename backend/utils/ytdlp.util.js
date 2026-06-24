@@ -7,6 +7,10 @@ const BASE_OPTIONS = {
   noCheckCertificates: true,
   noWarnings: true,
   preferFreeFormats: true,
+  // Default extractor args used when YTDLP_EXTRACTOR_ARGS env var is unset.
+  // The "web" client returns formats without URLs since YouTube enforced SABR
+  // streaming. tv/ios/web_safari are the clients that still serve real URLs.
+  extractorArgs: "youtube:player_client=tv,ios,web_safari",
 };
 
 const resolveCookiesFile = () => {

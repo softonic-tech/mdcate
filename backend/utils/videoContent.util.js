@@ -168,8 +168,7 @@ const extractAudioWithYtdlp = async (url, dir) => {
     await ytdlpExec(
       url,
       ytdlpOptions({
-        format:
-          "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best[filesize<80M]/best",
+        format: "bestaudio/best",
         output: outputTemplate,
       })
     );

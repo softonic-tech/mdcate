@@ -77,8 +77,7 @@ const env = {
 
   /** Netscape-format cookies.txt for yt-dlp (YouTube bot checks on datacenter IPs) */
   YTDLP_COOKIES_FILE: process.env.YTDLP_COOKIES_FILE || "",
-  YTDLP_EXTRACTOR_ARGS:
-    process.env.YTDLP_EXTRACTOR_ARGS || "youtube:player_client=android,web",
+  YTDLP_EXTRACTOR_ARGS: process.env.YTDLP_EXTRACTOR_ARGS || "",
 
   JAZZCASH_MERCHANT_ID: process.env.JAZZCASH_MERCHANT_ID,
   JAZZCASH_PASSWORD: process.env.JAZZCASH_PASSWORD,
