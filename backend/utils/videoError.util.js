@@ -61,6 +61,13 @@ export const toUserFriendlyVideoError = (error) => {
     return "AI summarization is not configured on the server. Please contact support.";
   }
 
+  if (
+    raw.includes("is a directory") &&
+    (raw.includes("cookies") || raw.includes("youtube-cookies") || raw.includes("/secrets/"))
+  ) {
+    return "Video processing is misconfigured on the server (YouTube cookies path is a folder, not a file). Please contact support.";
+  }
+
   if (raw.includes("incorrect api key") || raw.includes("invalid_api_key")) {
     return "AI service authentication failed. Please contact support.";
   }
