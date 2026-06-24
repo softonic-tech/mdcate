@@ -24,6 +24,10 @@ api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
+      const notice = error.response?.data?.message;
+      if (notice?.includes("another device")) {
+        sessionStorage.setItem("auth_notice", notice);
+      }
       localStorage.removeItem("admin_token");
       localStorage.removeItem("admin_user");
       window.location.href = "/login";

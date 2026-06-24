@@ -2,7 +2,11 @@ import asyncHandler from "../utils/asyncHandler.js";
 import * as service from "../services/leaderboard.service.js";
 
 export const getTopLeaderboard = asyncHandler(async (req, res) => {
-  const limit = Number(req.query.limit) || 10;
+  const limitParam = req.query.limit;
+  const limit =
+    limitParam === undefined || limitParam === ""
+      ? 10
+      : Number(limitParam);
   const data = await service.getTopUsers(limit);
   res.json({ success: true, count: data.length, data });
 });

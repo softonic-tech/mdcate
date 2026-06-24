@@ -11,6 +11,8 @@ import {
 } from "./subscription.service.js";
 import { buildJazzCashCheckout, verifyJazzCashCallback } from "./jazzcash.service.js";
 import { buildEasypaisaCheckout, verifyEasypaisaCallback } from "./easypaisa.service.js";
+import { getOrCreatePaymentSettings } from "./paymentSettings.service.js";
+import { uploadToS3 } from "../utils/s3Upload.js";
 
 const generateTxnRef = () => `MP${Date.now()}${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 
@@ -27,7 +29,7 @@ export const syncSubscriptionStatus = async (user) => {
   const now = new Date();
   let changed = false;
 
-  if (sub.status === "trialing" && sub.trialEndsAt && new Date(sub.trialEndsAt) <= now) {
+  if (sub.status === "trialing") {
     expireUserSubscription(user);
     changed = true;
   }
@@ -54,6 +56,13 @@ export const initiateCheckoutService = async ({
   provider,
   mobileNumber,
 }) => {
+  const settings = await getOrCreatePaymentSettings();
+  if (!settings.automaticPaymentsEnabled) {
+    throw ApiError.badRequest(
+      "Automatic JazzCash / Easypaisa checkout is not available yet. Please pay manually and upload your receipt."
+    );
+  }
+
   if (!["jazzcash", "easypaisa"].includes(provider)) {
     throw ApiError.badRequest("Invalid payment provider");
   }
@@ -204,12 +213,89 @@ export const getAllPaymentsService = async () =>
     .populate("planId", "name slug price")
     .sort({ createdAt: -1 });
 
-export const manualApprovePaymentService = async (paymentId) => {
+export const submitManualPaymentService = async ({
+  user,
+  planId,
+  manualChannel,
+  studentTxnReference,
+  screenshotFile,
+}) => {
+  if (!["jazzcash", "easypaisa", "bank"].includes(manualChannel)) {
+    throw ApiError.badRequest("Select how you sent the payment");
+  }
+  if (!screenshotFile) {
+    throw ApiError.badRequest("Payment screenshot is required");
+  }
+
+  const plan = await getPlanByIdService(planId);
+  if (!plan.isActive) throw ApiError.badRequest("This plan is not available");
+  if (plan.price <= 0) throw ApiError.badRequest("This plan does not require payment");
+
+  const existing = await Payment.findOne({
+    userId: user._id,
+    planId: plan._id,
+    status: "awaiting_review",
+  });
+  if (existing) {
+    throw ApiError.badRequest(
+      "You already have a payment awaiting review for this plan. Please wait for admin confirmation."
+    );
+  }
+
+  const proofScreenshotUrl = await uploadToS3({
+    buffer: screenshotFile.buffer,
+    mimetype: screenshotFile.mimetype,
+    keyPrefix: `payment-proofs/${user._id}`,
+    filename: screenshotFile.originalname,
+  });
+
+  const txnRef = generateTxnRef();
+  const payment = await Payment.create({
+    userId: user._id,
+    planId: plan._id,
+    amount: plan.price,
+    currency: plan.currency,
+    provider: "manual",
+    manualChannel,
+    status: "awaiting_review",
+    txnRef,
+    studentTxnReference: studentTxnReference?.trim() || null,
+    proofScreenshotUrl,
+  });
+
+  return payment;
+};
+
+export const rejectManualPaymentService = async (paymentId, adminId, reason) => {
+  const payment = await Payment.findById(paymentId);
+  if (!payment) throw ApiError.notFound("Payment not found");
+  if (payment.status === "completed") {
+    throw ApiError.badRequest("Completed payments cannot be rejected");
+  }
+  if (!["awaiting_review", "pending"].includes(payment.status)) {
+    throw ApiError.badRequest("This payment cannot be rejected");
+  }
+
+  payment.status = "rejected";
+  payment.rejectionReason = reason?.trim() || "Payment could not be verified";
+  payment.reviewedAt = new Date();
+  payment.reviewedBy = adminId;
+  await payment.save();
+
+  return payment;
+};
+
+export const manualApprovePaymentService = async (paymentId, adminId) => {
   const payment = await Payment.findById(paymentId);
   if (!payment) throw ApiError.notFound("Payment not found");
   if (payment.status === "completed") return payment;
+  if (!["awaiting_review", "pending"].includes(payment.status)) {
+    throw ApiError.badRequest("Only pending manual payments can be approved");
+  }
 
   payment.provider = "manual";
+  payment.reviewedAt = new Date();
+  payment.reviewedBy = adminId;
   await finalizeSuccessfulPayment(payment, `MANUAL-${Date.now()}`);
   return payment;
 };

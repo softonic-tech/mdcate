@@ -86,11 +86,12 @@ const userSchema = new mongoose.Schema(
     resetPasswordToken: String,
     resetPasswordExpire: Date,
     refreshToken: { type: String, select: false },
+    sessionVersion: { type: Number, default: 0 },
 
     subscription: {
       planSlug: {
         type: String,
-        default: "trial",
+        default: "none",
       },
       planId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -100,7 +101,7 @@ const userSchema = new mongoose.Schema(
       status: {
         type: String,
         enum: ["trialing", "active", "expired", "cancelled"],
-        default: "trialing",
+        default: "expired",
       },
       trialStartedAt: { type: Date, default: null },
       trialEndsAt: { type: Date, default: null },

@@ -1,10 +1,15 @@
 import User from "../models/user.model.js";
 
 export const getTopUsers = async (limit = 10) => {
-  return User.find()
+  const query = User.find()
     .select("username profilePicture points streak")
-    .sort({ points: -1 })
-    .limit(limit);
+    .sort({ points: -1 });
+
+  if (limit > 0) {
+    query.limit(limit);
+  }
+
+  return query;
 };
 
 export const getUserRank = async (userId) => {

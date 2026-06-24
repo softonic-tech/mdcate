@@ -4,6 +4,7 @@ import { io } from "socket.io-client";
 import { memo, useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Menu, Search, BellRing, ChevronDown, User, Settings, LogOut, X } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/context/AuthContext";
 import { useProfile } from "@/context/ProfileContext";
 import { useDashboardSearch } from "@/context/DashboardSearchContext";
@@ -163,6 +164,8 @@ function Header({ onMenuToggle, sidebarOpen = false }) {
       </div>
 
       <div className="dash-header__right">
+        <ThemeToggle className="dash-header__icon-btn theme-toggle" size={18} />
+
         <Link
           href="/dashboard/notifications"
           className="dash-header__icon-btn relative"

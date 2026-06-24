@@ -66,7 +66,7 @@ import {
   mnemonicService, highYieldFactService,
   examCountdownService, contactMessageService, performanceService,
   testAttemptService, userService, notificationService,
-  leaderboardService, challengeAttemptService, pricingPlanService, paymentService,
+  leaderboardService, challengeAttemptService, pricingPlanService, paymentService, paymentSettingsService,
 } from "@/lib/services";
 
 // Subjects
@@ -251,6 +251,28 @@ export function useConfirmMcqImport() {
   });
 }
 
+export function usePreviewPastPaperImport() {
+  return useMutation({
+    mutationFn: (formData) => testService.previewPastPaperImport(formData),
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+}
+
+export function useConfirmPastPaperImport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload) => testService.confirmPastPaperImport(payload),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["tests"] });
+      qc.invalidateQueries({ queryKey: ["questions"] });
+      const total = res?.data?.totalQuestions ?? res?.totalQuestions ?? 0;
+      const created = res?.data?.created ?? res?.created ?? 0;
+      toast.success(`Past paper published with ${total} MCQs (${created} new questions)`);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+}
+
 // Test Attempts
 export function useTestAttempts(params) {
   return useQuery({
@@ -305,6 +327,28 @@ export const paymentHooks = {
     return useMutation({
       mutationFn: (id) => paymentService.approve(id),
       onSuccess: () => qc.invalidateQueries({ queryKey: ["payments"] }),
+    });
+  },
+  useReject: () => {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, reason }) => paymentService.reject(id, reason),
+      onSuccess: () => qc.invalidateQueries({ queryKey: ["payments"] }),
+    });
+  },
+};
+
+export const paymentSettingsHooks = {
+  useGet: () =>
+    useQuery({
+      queryKey: ["payment-settings"],
+      queryFn: () => paymentSettingsService.get(),
+    }),
+  useUpdate: () => {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: (data) => paymentSettingsService.update(data),
+      onSuccess: () => qc.invalidateQueries({ queryKey: ["payment-settings"] }),
     });
   },
 };

@@ -12,10 +12,8 @@ cron.schedule("0 * * * *", async () => {
   const now = new Date();
   const users = await User.find({
     role: { $ne: "admin" },
-    $or: [
-      { "subscription.status": "trialing", "subscription.trialEndsAt": { $lte: now } },
-      { "subscription.status": "active", "subscription.currentPeriodEndsAt": { $lte: now } },
-    ],
+    "subscription.status": "active",
+    "subscription.currentPeriodEndsAt": { $lte: now },
   });
 
   for (const user of users) {

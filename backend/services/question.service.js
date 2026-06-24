@@ -12,8 +12,9 @@ export const createQuestionService = async (data) => {
   return Question.create(data);
 };
 
-export const bulkCreateQuestionsService = async (questions) => {
+export const bulkCreateQuestionsService = async (questions, { returnIds = false } = {}) => {
   const results = { created: 0, skipped: 0, errors: [] };
+  const ids = returnIds ? [] : undefined;
 
   for (const q of questions) {
     try {
@@ -24,18 +25,20 @@ export const bulkCreateQuestionsService = async (questions) => {
       });
 
       if (exists) {
+        if (returnIds) ids.push(exists._id);
         results.skipped += 1;
         continue;
       }
 
-      await Question.create(q);
+      const doc = await Question.create(q);
+      if (returnIds) ids.push(doc._id);
       results.created += 1;
     } catch (err) {
       results.errors.push({ text: q.text?.substring(0, 50), error: err.message });
     }
   }
 
-  return results;
+  return returnIds ? { ids, ...results } : results;
 };
 
 export const getQuestionsService = async (filters) => {
@@ -44,7 +47,11 @@ export const getQuestionsService = async (filters) => {
   if (filters.chapterId) query.chapterId = filters.chapterId;
   if (filters.difficulty) query.difficulty = filters.difficulty;
   if (filters.tag) query.tags = filters.tag;
-  if (filters.isPastPaper !== undefined) query.isPastPaper = filters.isPastPaper === "true";
+  if (filters.isPastPaper !== undefined) {
+    const val = filters.isPastPaper;
+    const excludePastPaper = val === false || val === "false";
+    query.isPastPaper = excludePastPaper ? { $ne: true } : true;
+  }
   if (filters.paperYear) query.paperYear = Number(filters.paperYear);
 
   const { page, limit, skip } = paginate(filters);
@@ -52,6 +59,7 @@ export const getQuestionsService = async (filters) => {
     Question.find(query)
       .populate("subjectId", "name board")
       .populate("chapterId", "name")
+      .sort({ createdAt: 1, _id: 1 })
       .skip(skip)
       .limit(limit),
     Question.countDocuments(query),

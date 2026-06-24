@@ -1,8 +1,8 @@
 import API from "./client.js";
 
-// Top 10
-export const getTopLeaderboard = () =>
-  API.get("/leaderboard/top");
+// Full leaderboard (limit=0 returns all players)
+export const getTopLeaderboard = (limit = 0) =>
+  API.get("/leaderboard/top", { params: { limit } });
 
 // My Rank
 export const getMyRank = () =>

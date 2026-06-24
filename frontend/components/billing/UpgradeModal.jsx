@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Sparkles, X } from "lucide-react";
 
-export default function UpgradeModal({ open, onClose, daysRemaining }) {
+export default function UpgradeModal({ open, onClose }) {
   if (!open) return null;
 
   return (
@@ -18,17 +18,16 @@ export default function UpgradeModal({ open, onClose, daysRemaining }) {
         </div>
 
         <h2 id="upgrade-title" className="upgrade-modal__title">
-          {daysRemaining === 0 ? "Your free trial has ended" : "Upgrade to keep learning"}
+          Subscribe to keep learning
         </h2>
         <p className="upgrade-modal__desc">
-          {daysRemaining === 0
-            ? "Your 7-day free trial is over. Upgrade with JazzCash or Easypaisa to unlock the full MCQ bank, tests, AI tools, and more."
-            : `You have ${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left in your free trial. Upgrade now to avoid interruption.`}
+          You need an active plan to access the full MCQ bank, tests, AI tools, and more. Choose a plan,
+          pay via JazzCash, Easypaisa, or bank transfer, and upload your payment screenshot.
         </p>
 
         <div className="upgrade-modal__actions">
-          <Link href="/dashboard/billing" className="btn-primary btn--full">
-            View plans & upgrade
+          <Link href="/dashboard/billing" className="btn-primary btn--full" onClick={onClose}>
+            View plans & subscribe
           </Link>
           <button type="button" className="btn-ghost btn--full" onClick={onClose}>
             Maybe later

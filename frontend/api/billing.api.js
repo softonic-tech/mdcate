@@ -13,3 +13,10 @@ export const completeMockPayment = (paymentId) =>
 
 export const getPaymentStatus = (txnRef) =>
   client.get(`/billing/payments/status/${txnRef}`);
+
+export const getPaymentSettings = () => client.get("/billing/payment-settings");
+
+export const submitManualPayment = (formData) =>
+  client.post("/billing/payments/manual", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });

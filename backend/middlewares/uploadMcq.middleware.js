@@ -11,12 +11,16 @@ const ALLOWED_TYPES = new Set([
 
 const fileFilter = (_req, file, cb) => {
   const name = file.originalname?.toLowerCase() || "";
-  const allowedByName = name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".doc");
+  const allowedByName =
+    name.endsWith(".pdf") ||
+    name.endsWith(".docx") ||
+    name.endsWith(".doc") ||
+    name.endsWith(".txt");
 
   if (ALLOWED_TYPES.has(file.mimetype) || allowedByName) {
     cb(null, true);
   } else {
-    cb(ApiError.badRequest("Only .docx and .pdf files are allowed"), false);
+    cb(ApiError.badRequest("Only .txt, .docx and .pdf files are allowed"), false);
   }
 };
 

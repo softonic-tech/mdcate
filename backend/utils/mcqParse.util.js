@@ -497,9 +497,238 @@ const parseFuzzyFormat = (text) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// KMU / MDCAT full-paper template (plain text, docx, pdf exports)
+//
+//   KMU MDCAT 2025 CODE D - Complete Questions
+//
+//   BIOLOGY
+//   1. Question stem...
+//   a. Option A
+//   b. Option B
+//   c. Option C
+//   d. Option D
+//
+//   PHYSICS
+//   82. Next question...
+//   a. ...
+//
+// Optional answer key at the end:
+//   ANSWER KEY
+//   1. B
+//   2. A
+// ─────────────────────────────────────────────────────────────────────────────
+const KMU_SECTION_LINE = /^([A-Z][A-Z0-9\s]{2,60})$/;
+const KMU_END_MARKERS = /^(END OF PAPER|ANSWER KEY|ANSWER SHEET|KEY)$/i;
+const KMU_SKIP_LINE =
+  /^(?:\d+\s*-\s*\d+\s*:|Questions not clearly visible|\(Questions not|\(Option not visible)/i;
+const KMU_QUESTION_LINE = /^(\d+)\.\s+(.+)$/;
+const KMU_OPTION_LINE = /^([a-eA-E])\.\s*(.+)$/;
+const KMU_ANSWER_KEY_LINE = /^(\d+)\s*[.)]?\s*([A-Ea-e])\b/;
+
+const KMU_KNOWN_SECTIONS = new Set([
+  "BIOLOGY",
+  "PHYSICS",
+  "CHEMISTRY",
+  "ENGLISH",
+  "LOGICAL REASONING",
+  "ANALYTICAL REASONING",
+  "MATHEMATICS",
+  "MATH",
+]);
+
+const isKmuSectionLine = (line) => {
+  if (!line || !KMU_SECTION_LINE.test(line)) return false;
+  if (KMU_END_MARKERS.test(line)) return false;
+  if (KMU_SKIP_LINE.test(line)) return false;
+  const upper = line.toUpperCase();
+  if (KMU_KNOWN_SECTIONS.has(upper)) return true;
+  // Heuristic: all-caps words, no sentence punctuation, not a question stem.
+  return /^[A-Z][A-Z\s]{3,}$/.test(line) && !line.includes("?");
+};
+
+const parseKmuAnswerKey = (lines) => {
+  const keyStart = lines.findIndex((line) => KMU_END_MARKERS.test(line) && /KEY/i.test(line));
+  if (keyStart === -1) return {};
+
+  const answers = {};
+  for (let i = keyStart + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!line || isKmuSectionLine(line)) continue;
+    const match = line.match(KMU_ANSWER_KEY_LINE);
+    if (match) {
+      answers[Number(match[1])] = match[2].toLowerCase().charCodeAt(0) - 97;
+    }
+  }
+  return answers;
+};
+
+export const detectKmuMdcatFormat = (rawText = "") => {
+  const lines = textToLines(rawText);
+  const sectionCount = lines.filter(isKmuSectionLine).length;
+  const optionCount = lines.filter((line) => KMU_OPTION_LINE.test(line)).length;
+  const questionCount = lines.filter(
+    (line) => KMU_QUESTION_LINE.test(line) && !KMU_OPTION_LINE.test(line)
+  ).length;
+
+  return sectionCount >= 2 && optionCount >= 8 && questionCount >= 5;
+};
+
+export const parseKmuMdcatFormat = (rawText = "") => {
+  const lines = textToLines(rawText);
+  const questions = [];
+  const errors = [];
+  const sectionCounts = {};
+  const answerKey = parseKmuAnswerKey(lines);
+
+  let detectedTitle = "";
+  let currentSection = "GENERAL";
+  let titleCaptured = false;
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (!line) {
+      i += 1;
+      continue;
+    }
+
+    if (KMU_END_MARKERS.test(line) && /KEY/i.test(line)) {
+      break;
+    }
+
+    if (line.toUpperCase() === "END OF PAPER") {
+      break;
+    }
+
+    if (KMU_SKIP_LINE.test(line)) {
+      i += 1;
+      continue;
+    }
+
+    if (isKmuSectionLine(line)) {
+      currentSection = line.toUpperCase().trim();
+      sectionCounts[currentSection] = sectionCounts[currentSection] || 0;
+      i += 1;
+      continue;
+    }
+
+    if (!titleCaptured && !KMU_QUESTION_LINE.test(line)) {
+      detectedTitle = line.trim();
+      titleCaptured = true;
+      i += 1;
+      continue;
+    }
+
+    const qm = line.match(KMU_QUESTION_LINE);
+    if (!qm) {
+      i += 1;
+      continue;
+    }
+
+    const paperNumber = Number(qm[1]);
+    const stemParts = [qm[2].trim()];
+    i += 1;
+
+    const options = [];
+    while (i < lines.length) {
+      const next = lines[i];
+      if (!next) {
+        i += 1;
+        continue;
+      }
+      if (isKmuSectionLine(next) || KMU_QUESTION_LINE.test(next) || KMU_END_MARKERS.test(next)) {
+        break;
+      }
+      if (KMU_SKIP_LINE.test(next)) {
+        i += 1;
+        continue;
+      }
+
+      const om = next.match(KMU_OPTION_LINE);
+      if (om) {
+        options.push(om[2].trim());
+        i += 1;
+        continue;
+      }
+
+      if (options.length > 0 && options.length < 4) {
+        break;
+      }
+
+      if (options.length === 0 && !KMU_ANSWER_KEY_LINE.test(next)) {
+        stemParts.push(next);
+        i += 1;
+        continue;
+      }
+      break;
+    }
+
+    if (options.length < 2) {
+      errors.push({
+        line: stemParts.join(" ").slice(0, 60),
+        reason: `section ${currentSection} #${paperNumber}: fewer than 2 options`,
+      });
+      continue;
+    }
+
+    let correctAnswer =
+      answerKey[paperNumber] !== undefined ? answerKey[paperNumber] : -1;
+    const needsAnswerKey = correctAnswer < 0;
+    if (needsAnswerKey) correctAnswer = 0;
+
+    if (correctAnswer >= options.length) {
+      errors.push({
+        line: stemParts.join(" ").slice(0, 60),
+        reason: `section ${currentSection} #${paperNumber}: answer index out of range`,
+      });
+      continue;
+    }
+
+    const tags = [currentSection];
+    if (needsAnswerKey) tags.push("needs-answer-key");
+
+    sectionCounts[currentSection] = (sectionCounts[currentSection] || 0) + 1;
+
+    questions.push({
+      text: stemParts.join(" ").trim(),
+      options,
+      correctAnswer,
+      explanation: needsAnswerKey ? "" : "",
+      difficulty: "medium",
+      tags,
+      section: currentSection,
+      paperNumber,
+      isPastPaper: true,
+      paperYear: null,
+      needsAnswerKey,
+    });
+  }
+
+  const sections = Object.entries(sectionCounts).map(([name, count]) => ({
+    name,
+    count,
+  }));
+
+  return {
+    questions,
+    errors,
+    detectedTitle,
+    sections,
+    missingAnswerCount: questions.filter((q) => q.needsAnswerKey).length,
+    format: "kmu_mdcat",
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
 export const parseStructuredMcqs = (rawText = "") => {
+  if (detectKmuMdcatFormat(rawText)) {
+    const kmu = parseKmuMdcatFormat(rawText);
+    if (kmu.questions.length > 0) return kmu;
+  }
+
   const lines = textToLines(rawText);
 
   const legacy = parseLegacyFormat(lines);

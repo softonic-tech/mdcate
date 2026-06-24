@@ -15,19 +15,26 @@ export const createTestService = async (data) => {
     throw ApiError.badRequest("Some questions do not exist");
   }
 
-  const wrongSubject = questions.some(
-    (q) => q.subjectId.toString() !== data.subjectId
-  );
-  if (wrongSubject) {
-    throw ApiError.badRequest("All questions must belong to the same subject");
-  }
+  const isPastPaper = data.type === "pastPaper";
 
-  if (data.chapterId) {
-    const wrongChapter = questions.some(
-      (q) => q.chapterId.toString() !== data.chapterId
+  if (isPastPaper) {
+    data.questionCount = ids.length;
+    data.chapterId = data.chapterId || null;
+  } else {
+    const wrongSubject = questions.some(
+      (q) => q.subjectId.toString() !== data.subjectId
     );
-    if (wrongChapter) {
-      throw ApiError.badRequest("All questions must belong to the same chapter");
+    if (wrongSubject) {
+      throw ApiError.badRequest("All questions must belong to the same subject");
+    }
+
+    if (data.chapterId) {
+      const wrongChapter = questions.some(
+        (q) => q.chapterId.toString() !== data.chapterId
+      );
+      if (wrongChapter) {
+        throw ApiError.badRequest("All questions must belong to the same chapter");
+      }
     }
   }
 
@@ -93,11 +100,12 @@ export const getTestsService = async (filters = {}) => {
   const query = {};
   if (filters.type) query.type = filters.type;
   if (filters.subjectId) query.subjectId = filters.subjectId;
+  if (filters.paperYear) query.paperYear = Number(filters.paperYear);
 
   return Test.find(query)
     .populate("subjectId", "name board")
     .populate("chapterId", "name")
-    .sort({ createdAt: -1 });
+    .sort(filters.type === "pastPaper" ? { paperYear: -1, createdAt: -1 } : { createdAt: -1 });
 };
 
 export const getTestByIdService = async (id) => {
@@ -113,6 +121,10 @@ export const updateTestService = async (id, data) => {
 
     if (questions.length !== ids.length) {
       throw ApiError.badRequest("Some questions do not exist");
+    }
+
+    if (data.type === "pastPaper" || (await Test.findById(id))?.type === "pastPaper") {
+      data.questionCount = ids.length;
     }
   }
 

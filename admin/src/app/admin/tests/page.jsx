@@ -26,7 +26,6 @@ import {
   QUESTION_COUNTS,
 } from "@/lib/constants";
 
-// ================= TYPE COLORS =================
 const typeVariant = {
   mock: "info",
   quiz: "success",
@@ -34,7 +33,6 @@ const typeVariant = {
   pastPaper: "warning",
 };
 
-// ================= TABLE =================
 const columns = [
   { key: "title", label: "Title" },
 
@@ -57,7 +55,7 @@ const columns = [
   {
     key: "questionCount",
     label: "Questions",
-    render: (row) => row.questionCount,
+    render: (row) => row.questions?.length || row.questionCount,
   },
 
   {
@@ -74,7 +72,6 @@ const columns = [
   },
 ];
 
-// ================= DEFAULT =================
 const defaultValues = {
   title: "",
   type: "quiz",
@@ -86,13 +83,16 @@ const defaultValues = {
   questions: [],
 };
 
-// ================= FORM =================
 function TestForm({ values, handleChange }) {
+  const isPastPaper = values.type === "pastPaper";
   const subjects = subjectHooks.useList();
   const chapters = useChaptersBySubject(values.subjectId);
-  const questions = questionHooks.useList();
+  const questions = questionHooks.useList({
+    limit: 500,
+    subjectId: values.subjectId || undefined,
+    isPastPaper: isPastPaper ? "true" : undefined,
+  });
 
-  // ================= OPTIONS =================
   const subjectOptions = (subjects.data?.data || []).map((s) => ({
     value: s._id,
     label: `${s.name} (${s.board})`,
@@ -105,7 +105,6 @@ function TestForm({ values, handleChange }) {
 
   const allQuestions = questions.data?.data || [];
 
-  // ================= FILTER QUESTIONS =================
   const filteredQuestions = allQuestions.filter((q) => {
     if (!values.subjectId) return false;
 
@@ -128,9 +127,10 @@ function TestForm({ values, handleChange }) {
   });
 
   const selectedQuestions = values.questions || [];
-  const maxCount = Number(values.questionCount);
+  const maxCount = isPastPaper
+    ? Infinity
+    : Number(values.questionCount);
 
-  // ================= SUBJECT CHANGE =================
   const onSubjectChange = (e) => {
     const value = e.target.value;
 
@@ -138,7 +138,6 @@ function TestForm({ values, handleChange }) {
       target: { name: "subjectId", value },
     });
 
-    // reset chapter + questions
     handleChange({
       target: { name: "chapterId", value: "" },
     });
@@ -148,7 +147,6 @@ function TestForm({ values, handleChange }) {
     });
   };
 
-  // ================= CHAPTER CHANGE =================
   const onChapterChange = (e) => {
     const value = e.target.value;
 
@@ -161,9 +159,17 @@ function TestForm({ values, handleChange }) {
     });
   };
 
+  const onTypeChange = (e) => {
+    handleChange(e);
+    if (e.target.value === "pastPaper") {
+      handleChange({
+        target: { name: "questions", value: [] },
+      });
+    }
+  };
+
   return (
     <>
-      {/* TITLE */}
       <FormInput
         label="Title"
         name="title"
@@ -172,29 +178,38 @@ function TestForm({ values, handleChange }) {
         required
       />
 
-      {/* TYPE + COUNT */}
       <div className="grid grid-cols-2 gap-4">
         <FormSelect
           label="Type"
           name="type"
           value={values.type}
-          onChange={handleChange}
+          onChange={onTypeChange}
           options={TEST_TYPES}
         />
 
-        <FormSelect
-          label="Question Count"
-          name="questionCount"
-          value={values.questionCount}
-          onChange={handleChange}
-          options={QUESTION_COUNTS.map((n) => ({
-            value: n,
-            label: String(n),
-          }))}
-        />
+        {isPastPaper ? (
+          <FormInput
+            label="Paper Year"
+            name="paperYear"
+            type="number"
+            value={values.paperYear}
+            onChange={handleChange}
+            placeholder="e.g. 2023"
+          />
+        ) : (
+          <FormSelect
+            label="Question Count"
+            name="questionCount"
+            value={values.questionCount}
+            onChange={handleChange}
+            options={QUESTION_COUNTS.map((n) => ({
+              value: n,
+              label: String(n),
+            }))}
+          />
+        )}
       </div>
 
-      {/* SUBJECT + CHAPTER */}
       <div className="grid grid-cols-2 gap-4">
         <FormSelect
           label="Subject"
@@ -210,20 +225,38 @@ function TestForm({ values, handleChange }) {
           name="chapterId"
           value={values.chapterId}
           onChange={onChapterChange}
-          disabled={!values.subjectId}
+          disabled={!values.subjectId || isPastPaper}
           placeholder={
             values.subjectId
-              ? "Select chapter"
+              ? isPastPaper
+                ? "Optional for past papers"
+                : "Select chapter"
               : "Select subject first"
           }
           options={chapterOptions}
         />
       </div>
 
-      {/* QUESTIONS */}
+      <FormInput
+        label="Duration (minutes)"
+        name="duration"
+        type="number"
+        value={values.duration}
+        onChange={handleChange}
+        placeholder={isPastPaper ? "210" : "30"}
+      />
+
+      {isPastPaper && (
+        <p className="text-sm text-text-secondary -mt-2">
+          For full MDCAT papers, use the{" "}
+          <strong>Past Papers</strong> admin page to upload a .docx file in one step.
+        </p>
+      )}
+
       <div className="mt-4">
         <label className="block mb-2 font-medium">
-          Select Questions ({selectedQuestions.length}/{maxCount})
+          Select Questions ({selectedQuestions.length}
+          {!isPastPaper && `/${maxCount}`})
         </label>
 
         {!values.subjectId ? (
@@ -280,15 +313,16 @@ function TestForm({ values, handleChange }) {
           </div>
         )}
 
-        <p className="text-sm text-gray-500 mt-2">
-          Select exactly {maxCount} questions
-        </p>
+        {!isPastPaper && (
+          <p className="text-sm text-gray-500 mt-2">
+            Select exactly {maxCount} questions
+          </p>
+        )}
       </div>
     </>
   );
 }
 
-// ================= FORM WRAPPER =================
 function renderForm(values, handleChange) {
   return (
     <TestForm
@@ -298,7 +332,6 @@ function renderForm(values, handleChange) {
   );
 }
 
-// ================= EDIT =================
 const toFormValues = (row) => ({
   title: row.title,
   type: row.type,
@@ -319,17 +352,23 @@ const toFormValues = (row) => ({
     ) || [],
 });
 
-// ================= SUBMIT =================
 const transformSubmit = (values) => {
-  const count = Number(values.questionCount);
+  const isPastPaper = values.type === "pastPaper";
+  const count = isPastPaper
+    ? values.questions.length
+    : Number(values.questionCount);
 
-  if (values.questions.length !== count) {
+  if (!isPastPaper && values.questions.length !== count) {
     throw new Error(`Select exactly ${count} questions`);
+  }
+
+  if (isPastPaper && values.questions.length === 0) {
+    throw new Error("Select at least one question for the past paper");
   }
 
   return {
     ...values,
-    duration: Number(values.duration),
+    duration: Number(values.duration) || 0,
     questionCount: count,
     paperYear: values.paperYear
       ? Number(values.paperYear)
@@ -339,7 +378,6 @@ const transformSubmit = (values) => {
   };
 };
 
-// ================= PAGE =================
 export default function TestsPage() {
   return (
     <CrudPage

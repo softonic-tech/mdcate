@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
+import { CustomSelect } from "@/components/dashboard/CustomSelect";
 import {
   FilterPanel,
   FilterField,
@@ -604,7 +605,7 @@ export default function MockTestsPage() {
           <h2>Adaptive practice</h2>
           <p>Generate a 30-question test tailored to your weak areas in any subject.</p>
           <div className="test-adaptive-panel__row">
-            <select
+            <CustomSelect
               className="test-adaptive-panel__select"
               value={adaptiveSubject}
               onChange={(e) => setAdaptiveSubject(e.target.value)}
@@ -616,7 +617,7 @@ export default function MockTestsPage() {
                   {s.name}
                 </option>
               ))}
-            </select>
+            </CustomSelect>
             <button
               type="button"
               className="btn-primary"

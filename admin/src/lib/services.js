@@ -1,5 +1,16 @@
 import api from "./api";
 
+const formDataConfig = {
+  transformRequest: [
+    (data, headers) => {
+      if (data instanceof FormData) {
+        delete headers["Content-Type"];
+      }
+      return data;
+    },
+  ],
+};
+
 // ===== GENERIC CRUD FACTORY =====
 // Creates { getAll, getById, create, update, remove } for any resource
 function createCrudService(basePath) {
@@ -51,20 +62,15 @@ export const questionService = {
 };
 
 // ===== TESTS =====
-export const testService = createCrudService("/tests");
-
-// ===== BOOKS =====
-const formDataConfig = {
-  transformRequest: [
-    (data, headers) => {
-      if (data instanceof FormData) {
-        delete headers["Content-Type"];
-      }
-      return data;
-    },
-  ],
+export const testService = {
+  ...createCrudService("/tests"),
+  previewPastPaperImport: (formData) =>
+    api.post("/tests/import-past-paper/preview", formData, formDataConfig).then((r) => r.data),
+  confirmPastPaperImport: (payload) =>
+    api.post("/tests/import-past-paper/confirm", payload).then((r) => r.data),
 };
 
+// ===== BOOKS =====
 export const bookService = {
   getAll: (params) => api.get("/books", { params }).then((r) => r.data),
   getById: (id) => api.get(`/books/${id}`).then((r) => r.data),
@@ -165,4 +171,11 @@ export const pricingPlanService = createCrudService("/pricing");
 export const paymentService = {
   getAll: () => api.get("/billing/payments").then((r) => r.data),
   approve: (id) => api.post(`/billing/payments/${id}/approve`).then((r) => r.data),
+  reject: (id, reason) =>
+    api.post(`/billing/payments/${id}/reject`, { reason }).then((r) => r.data),
+};
+
+export const paymentSettingsService = {
+  get: () => api.get("/billing/payment-settings").then((r) => r.data),
+  update: (data) => api.put("/billing/payment-settings", data).then((r) => r.data),
 };

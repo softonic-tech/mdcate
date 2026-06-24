@@ -1,73 +1,57 @@
-import env from "../config/env.config.js";
-
-export const TRIAL_DAYS = Number(env.TRIAL_DAYS || 7);
-
-export const getTrialEndDate = (from = new Date()) => {
-  const end = new Date(from);
-  end.setDate(end.getDate() + TRIAL_DAYS);
-  return end;
-};
-
 export const buildSubscriptionSummary = (user) => {
   const sub = user.subscription || {};
   const now = new Date();
-  const trialEndsAt = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
   const periodEndsAt = sub.currentPeriodEndsAt ? new Date(sub.currentPeriodEndsAt) : null;
 
-  let effectiveStatus = sub.status || "trialing";
+  let effectiveStatus = sub.status || "expired";
+
+  // Legacy trial accounts — no free access
+  if (effectiveStatus === "trialing") {
+    effectiveStatus = "expired";
+  }
+
   if (user.role === "admin") {
     return {
       planSlug: "admin",
       status: "active",
       isActive: true,
       needsUpgrade: false,
-      trialEndsAt,
       currentPeriodEndsAt: periodEndsAt,
       daysRemaining: null,
     };
   }
 
-  if (effectiveStatus === "trialing" && trialEndsAt && trialEndsAt <= now) {
-    effectiveStatus = "expired";
-  }
   if (effectiveStatus === "active" && periodEndsAt && periodEndsAt <= now) {
     effectiveStatus = "expired";
   }
 
-  const isActive =
-    effectiveStatus === "trialing" ||
-    effectiveStatus === "active";
+  const isActive = effectiveStatus === "active";
 
   let daysRemaining = null;
-  if (effectiveStatus === "trialing" && trialEndsAt) {
-    daysRemaining = Math.max(0, Math.ceil((trialEndsAt - now) / (1000 * 60 * 60 * 24)));
-  } else if (effectiveStatus === "active" && periodEndsAt) {
+  if (effectiveStatus === "active" && periodEndsAt) {
     daysRemaining = Math.max(0, Math.ceil((periodEndsAt - now) / (1000 * 60 * 60 * 24)));
   }
 
   return {
-    planSlug: sub.planSlug || "trial",
+    planSlug: sub.planSlug || "none",
     planId: sub.planId || null,
     status: effectiveStatus,
     isActive,
-    needsUpgrade: effectiveStatus === "expired",
-    trialEndsAt,
+    needsUpgrade: !isActive,
     currentPeriodEndsAt: periodEndsAt,
     daysRemaining,
   };
 };
 
-export const startTrialForUser = (user) => {
-  const now = new Date();
+export const initializeUnpaidSubscription = (user) => {
+  if (user.role === "admin") return user;
   if (!user.subscription) user.subscription = {};
-  if (user.subscription.trialStartedAt) return user;
-
-  user.subscription.planSlug = "trial";
-  user.subscription.status = "trialing";
-  user.subscription.trialStartedAt = now;
-  user.subscription.trialEndsAt = getTrialEndDate(now);
-  user.subscription.currentPeriodEndsAt = null;
+  user.subscription.planSlug = "none";
+  user.subscription.status = "expired";
   user.subscription.planId = null;
+  user.subscription.trialStartedAt = null;
+  user.subscription.trialEndsAt = null;
+  user.subscription.currentPeriodEndsAt = null;
   return user;
 };
 

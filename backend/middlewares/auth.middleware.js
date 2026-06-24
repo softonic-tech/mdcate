@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import ApiError from "../utils/ApiError.js";
 import User from "../models/user.model.js";
 import env from "../config/env.config.js";
+import { assertValidSession } from "../services/session.service.js";
 
 export const protect = async (req, _res, next) => {
   try {
@@ -23,9 +24,7 @@ export const protect = async (req, _res, next) => {
     const decoded = jwt.verify(token, env.JWT_SECRET);
 
     const user = await User.findById(decoded.id).select("-password");
-    if (!user) {
-      return next(ApiError.unauthorized("User belonging to this token no longer exists"));
-    }
+    assertValidSession(decoded, user);
 
     req.user = user;
     next();
@@ -52,7 +51,9 @@ export const optionalAuth = async (req, _res, next) => {
 
     if (token) {
       const decoded = jwt.verify(token, env.JWT_SECRET);
-      req.user = await User.findById(decoded.id).select("-password");
+      const user = await User.findById(decoded.id).select("-password");
+      assertValidSession(decoded, user);
+      req.user = user;
     }
   } catch {
     // Silently ignore invalid tokens for optional auth

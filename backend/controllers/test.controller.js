@@ -1,9 +1,34 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import * as service from "../services/test.service.js";
+import * as importService from "../services/mcqImport.service.js";
 
 export const createTest = asyncHandler(async (req, res) => {
-  const test = await service.createTestService(req.body);
+  const test = await service.createTestService({
+    ...req.body,
+    createdBy: req.user._id,
+  });
   res.status(201).json({ success: true, data: test });
+});
+
+export const previewPastPaperImport = asyncHandler(async (req, res) => {
+  const { mode = "auto" } = req.body;
+  const data = await importService.previewPastPaperImport({
+    file: req.file,
+    mode,
+  });
+  res.json({ success: true, data });
+});
+
+export const confirmPastPaperImport = asyncHandler(async (req, res) => {
+  const { questions, title, paperYear, duration } = req.body;
+  const data = await importService.confirmPastPaperImport({
+    questions,
+    title,
+    paperYear,
+    duration,
+    createdBy: req.user._id,
+  });
+  res.status(201).json({ success: true, data });
 });
 
 export const generateAdaptiveTest = asyncHandler(async (req, res) => {

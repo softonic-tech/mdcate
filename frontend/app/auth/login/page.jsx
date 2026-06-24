@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import AuthForm from "@/components/AuthForm";
@@ -9,6 +10,14 @@ import { useAuth } from "@/context/AuthContext";
 export default function Login() {
   const router = useRouter();
   const { login } = useAuth();
+
+  useEffect(() => {
+    const notice = sessionStorage.getItem("auth_notice");
+    if (notice) {
+      toast.error(notice);
+      sessionStorage.removeItem("auth_notice");
+    }
+  }, []);
 
   const handleLogin = async (data) => {
     try {

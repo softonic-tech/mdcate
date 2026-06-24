@@ -12,6 +12,7 @@ import {
   parseStructuredMcqs,
 } from "../utils/mcqParse.util.js";
 import { bulkCreateQuestionsService } from "./question.service.js";
+import Test from "../models/test.model.js";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_AI_CHUNK = 8000;
@@ -83,7 +84,16 @@ export const extractTextFromUpload = async (file) => {
     return { text: result?.text || "", fileType: "pdf" };
   }
 
-  throw ApiError.badRequest("Unsupported file type. Upload a .docx or .pdf file.");
+  if (
+    mime === "text/plain" ||
+    file.originalname?.toLowerCase().endsWith(".txt")
+  ) {
+    return { text: file.buffer.toString("utf8"), fileType: "txt" };
+  }
+
+  throw ApiError.badRequest(
+    "Unsupported file type. Upload a .txt, .docx, or .pdf file."
+  );
 };
 
 export const validateImportTargets = async (subjectId, chapterId) => {
@@ -101,6 +111,77 @@ export const validateImportTargets = async (subjectId, chapterId) => {
   }
 
   return { subject, chapter };
+};
+
+const PAST_PAPER_CHAPTER_NAME = "Past Papers";
+
+const SECTION_SUBJECT_RULES = [
+  { re: /biology|^bio$/, words: ["biology", "bio"] },
+  { re: /physics|^phy$/, words: ["physics", "phy"] },
+  { re: /chemistry|^chem$/, words: ["chemistry", "chem"] },
+  { re: /english|^eng$/, words: ["english", "eng"] },
+  { re: /logic|reason|analytical/, words: ["logic", "reasoning", "analytical"] },
+  { re: /math/, words: ["math", "mathematics"] },
+];
+
+const matchSubjectForSection = (sectionName, subjects = []) => {
+  const key = String(sectionName || "").toLowerCase();
+  const rule = SECTION_SUBJECT_RULES.find((r) => r.re.test(key));
+  if (!rule) return null;
+
+  return (
+    subjects.find((s) =>
+      rule.words.some((w) => s.name?.toLowerCase().includes(w))
+    ) || null
+  );
+};
+
+const getOrCreatePastPaperChapter = async (subjectId) => {
+  const existing = await Chapter.findOne({
+    subjectId,
+    name: PAST_PAPER_CHAPTER_NAME,
+  });
+  if (existing) return existing;
+
+  return Chapter.create({
+    name: PAST_PAPER_CHAPTER_NAME,
+    subjectId,
+    summary: "Auto-created for past paper MCQ imports",
+  });
+};
+
+/** Map paper sections (BIOLOGY, PHYSICS, …) → subject + shared Past Papers chapter. */
+export const resolvePastPaperSectionMapping = async (sections = []) => {
+  if (!sections.length) {
+    throw ApiError.badRequest("No subject sections detected in this file.");
+  }
+
+  const subjects = await Subject.find().lean();
+  const mapping = {};
+  const unmatched = [];
+
+  for (const section of sections) {
+    const subject = matchSubjectForSection(section.name, subjects);
+    if (!subject) {
+      unmatched.push(section.name);
+      continue;
+    }
+
+    const chapter = await getOrCreatePastPaperChapter(subject._id);
+    mapping[section.name] = {
+      subjectId: subject._id,
+      chapterId: chapter._id,
+      subjectName: subject.name,
+    };
+  }
+
+  if (unmatched.length) {
+    throw ApiError.badRequest(
+      `No matching subject in admin for: ${unmatched.join(", ")}. Add these subjects first.`
+    );
+  }
+
+  return mapping;
 };
 
 // Split on question boundaries (Q1., Q2., ...) so chunks never tear a question
@@ -251,43 +332,223 @@ export const previewMcqImport = async ({ file, subjectId, chapterId, mode = "aut
   };
 };
 
-export const confirmMcqImport = async ({ questions, subjectId, chapterId }) => {
+const prepareMcqImportPayload = (
+  questions,
+  { subjectId, chapterId, defaultIsPastPaper = false, defaultPaperYear = null, sectionMapping = null }
+) =>
+  questions
+    .map((question) => {
+      const normalized = normalizeAiMcq(question);
+      if (normalized) return { ...question, ...normalized };
+      if (
+        question?.text &&
+        Array.isArray(question.options) &&
+        question.options.length >= 2 &&
+        Number.isInteger(question.correctAnswer)
+      ) {
+        return question;
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .map((question) => {
+      const section = question.section || "GENERAL";
+      const mapped = sectionMapping?.[section];
+      const resolvedSubjectId = mapped?.subjectId || question.subjectId || subjectId;
+      const resolvedChapterId = mapped?.chapterId || question.chapterId || chapterId;
+
+      return {
+        text: question.text,
+        options: question.options,
+        correctAnswer: question.correctAnswer,
+        explanation: question.explanation || "",
+        difficulty: question.difficulty || "medium",
+        tags: question.tags || [],
+        subjectId: resolvedSubjectId,
+        chapterId: resolvedChapterId,
+        isPastPaper: defaultIsPastPaper || Boolean(question.isPastPaper),
+        paperYear: defaultPaperYear
+          ? Number(defaultPaperYear)
+          : question.paperYear
+            ? Number(question.paperYear)
+            : null,
+      };
+    });
+
+export const confirmMcqImport = async ({
+  questions,
+  subjectId,
+  chapterId,
+  returnIds = false,
+  defaultIsPastPaper = false,
+  defaultPaperYear = null,
+}) => {
   await validateImportTargets(subjectId, chapterId);
 
   if (!Array.isArray(questions) || questions.length === 0) {
     throw ApiError.badRequest("No questions to import.");
   }
 
-  const payload = questions
-    .map((question) => normalizeAiMcq(question) || question)
-    .filter(
-      (question) =>
-        question?.text &&
-        Array.isArray(question.options) &&
-        question.options.length >= 2 &&
-        Number.isInteger(question.correctAnswer)
-    )
-    .map((question) => ({
-      text: question.text,
-      options: question.options,
-      correctAnswer: question.correctAnswer,
-      explanation: question.explanation || "",
-      difficulty: question.difficulty || "medium",
-      tags: question.tags || [],
-      subjectId,
-      chapterId,
-      isPastPaper: Boolean(question.isPastPaper),
-      paperYear: question.paperYear ? Number(question.paperYear) : null,
-    }));
+  const payload = prepareMcqImportPayload(questions, {
+    subjectId,
+    chapterId,
+    defaultIsPastPaper,
+    defaultPaperYear,
+  });
 
   if (payload.length === 0) {
     throw ApiError.badRequest("All parsed questions were invalid.");
   }
 
-  const result = await bulkCreateQuestionsService(payload);
+  const result = await bulkCreateQuestionsService(payload, { returnIds });
 
   return {
     ...result,
     parsed: payload.length,
+  };
+};
+
+export const previewPastPaperImport = async ({ file, mode = "auto" }) => {
+  const { text, fileType } = await extractTextFromUpload(file);
+
+  if (!text.trim()) {
+    throw ApiError.badRequest("Could not read any text from this file.");
+  }
+
+  let method = "structured";
+  let questions = [];
+  let errors = [];
+  let detectedTitle = "";
+  let sections = [];
+  let missingAnswerCount = 0;
+
+  if (mode === "structured" || mode === "auto") {
+    const structured = parseStructuredMcqs(text);
+    questions = structured.questions;
+    errors = structured.errors;
+    detectedTitle = structured.detectedTitle || "";
+    sections = structured.sections || [];
+    missingAnswerCount = structured.missingAnswerCount || 0;
+    if (structured.format === "kmu_mdcat") method = "kmu_mdcat";
+  }
+
+  const needsAi =
+    mode === "ai" ||
+    (mode === "auto" && questions.length < MIN_STRUCTURED_COUNT);
+
+  if (needsAi) {
+    const aiResult = await parseMcqsWithAi(text);
+    questions = aiResult.questions;
+    errors = [...errors, ...aiResult.errors];
+    method = "ai";
+  }
+
+  questions = dedupeMcqs(questions);
+
+  const yearFromTitle = detectedTitle.match(/\b(20\d{2})\b/);
+
+  let sectionMapping = {};
+  let sectionPreview = sections;
+
+  if (sections.length > 0) {
+    sectionMapping = await resolvePastPaperSectionMapping(sections);
+    sectionPreview = sections.map((section) => ({
+      ...section,
+      subjectName: sectionMapping[section.name]?.subjectName || null,
+    }));
+  }
+
+  return {
+    method,
+    fileType,
+    characterCount: text.length,
+    previewCount: questions.length,
+    errorCount: errors.length,
+    errors: errors.slice(0, 20),
+    sample: questions.slice(0, 5),
+    questions,
+    detectedTitle,
+    sections: sectionPreview,
+    sectionMapping,
+    missingAnswerCount,
+    suggestedYear: yearFromTitle ? Number(yearFromTitle[1]) : null,
+  };
+};
+
+export const confirmPastPaperImport = async ({
+  questions,
+  title,
+  paperYear,
+  duration,
+  createdBy,
+}) => {
+  if (!title?.trim()) {
+    throw ApiError.badRequest("Past paper title is required.");
+  }
+
+  if (!Array.isArray(questions) || questions.length === 0) {
+    throw ApiError.badRequest("No questions to import.");
+  }
+
+  const sectionNames = [
+    ...new Set(questions.map((q) => q.section).filter(Boolean)),
+  ];
+  const sections = sectionNames.map((name) => ({
+    name,
+    count: questions.filter((q) => q.section === name).length,
+  }));
+
+  const sectionMapping = await resolvePastPaperSectionMapping(sections);
+
+  const payload = prepareMcqImportPayload(questions, {
+    sectionMapping,
+    defaultIsPastPaper: true,
+    defaultPaperYear: paperYear,
+  }).filter(
+    (question) =>
+      question?.text &&
+      Array.isArray(question.options) &&
+      question.options.length >= 2 &&
+      Number.isInteger(question.correctAnswer) &&
+      question.subjectId &&
+      question.chapterId
+  );
+
+  if (payload.length === 0) {
+    throw ApiError.badRequest("All parsed questions were invalid.");
+  }
+
+  const result = await bulkCreateQuestionsService(payload, { returnIds: true });
+
+  if (!result.ids?.length) {
+    throw ApiError.badRequest("Could not create or match any questions.");
+  }
+
+  const primarySubjectId =
+    sectionMapping[questions[0]?.section]?.subjectId || payload[0]?.subjectId;
+
+  const test = await Test.create({
+    title: title.trim(),
+    type: "pastPaper",
+    subjectId: primarySubjectId,
+    chapterId: null,
+    duration: duration
+      ? Number(duration)
+      : Math.max(210, Math.round(result.ids.length * 1.2)),
+    paperYear: paperYear ? Number(paperYear) : null,
+    questionCount: result.ids.length,
+    questions: result.ids,
+    createdBy,
+  });
+
+  return {
+    test,
+    created: result.created,
+    skipped: result.skipped,
+    errors: result.errors,
+    parsed: payload.length,
+    totalQuestions: result.ids.length,
+    missingAnswerCount: questions.filter((q) => q.needsAnswerKey).length,
+    sectionMapping,
   };
 };

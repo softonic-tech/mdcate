@@ -8,6 +8,6 @@ export const requireActiveSubscription = (req, _res, next) => {
   if (summary.isActive) return next();
 
   return next(
-    ApiError.forbidden("Your free trial has ended. Please upgrade to continue.")
+    ApiError.forbidden("An active subscription is required. Please upgrade to continue.")
   );
 };

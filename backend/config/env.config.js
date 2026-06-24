@@ -13,7 +13,7 @@ function buildCorsOrigins() {
   }
   const base = [FRONTEND_URL, ADMINPANEL_URL];
   if ((process.env.NODE_ENV || "development") !== "production") {
-    const ports = [3000, 3001, 3002, 3003, 3004, 3005, 5173, 8080];
+    const ports = [3000, 3001, 3002, 3003, 3004, 3005, 5173, 8080, 4000, 4001, 4002, 4003];
     const local = ports.flatMap((p) => [`http://localhost:${p}`, `http://127.0.0.1:${p}`]);
     return [...new Set([...base, ...local])];
   }
@@ -61,7 +61,6 @@ const env = {
 
   ADMIN_EMAIL: process.env.ADMIN_EMAIL,
 
-  TRIAL_DAYS: process.env.TRIAL_DAYS || "7",
   BACKEND_URL: process.env.BACKEND_URL,
 
   JAZZCASH_MERCHANT_ID: process.env.JAZZCASH_MERCHANT_ID,

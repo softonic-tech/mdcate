@@ -40,6 +40,7 @@ import chapterVideoRoutes from "./routes/chapterVideo.routes.js";
 import pricingPlanRoutes from "./routes/pricingPlan.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import publicRoutes from "./routes/public.routes.js";
+import learningRoutes from "./routes/learning.routes.js";
 
 const app = express();
 
@@ -116,6 +117,7 @@ app.use("/api/v1/chapter-videos", chapterVideoRoutes);
 app.use("/api/v1/pricing", pricingPlanRoutes);
 app.use("/api/v1/billing", paymentRoutes);
 app.use("/api/v1/public", publicRoutes);
+app.use("/api/v1/learning", learningRoutes);
 
 app.use((req, _res, next) => {
   next(ApiError.notFound(`Route not found: ${req.method} ${req.originalUrl}`));

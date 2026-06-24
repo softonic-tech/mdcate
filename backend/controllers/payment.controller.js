@@ -50,6 +50,26 @@ export const getAllPayments = asyncHandler(async (req, res) => {
 });
 
 export const manualApprovePayment = asyncHandler(async (req, res) => {
-  const payment = await service.manualApprovePaymentService(req.params.id);
+  const payment = await service.manualApprovePaymentService(req.params.id, req.user._id);
+  res.json({ success: true, data: payment });
+});
+
+export const submitManualPayment = asyncHandler(async (req, res) => {
+  const payment = await service.submitManualPaymentService({
+    user: req.user,
+    planId: req.body.planId,
+    manualChannel: req.body.manualChannel,
+    studentTxnReference: req.body.studentTxnReference,
+    screenshotFile: req.file,
+  });
+  res.status(201).json({ success: true, data: payment });
+});
+
+export const rejectManualPayment = asyncHandler(async (req, res) => {
+  const payment = await service.rejectManualPaymentService(
+    req.params.id,
+    req.user._id,
+    req.body.reason
+  );
   res.json({ success: true, data: payment });
 });

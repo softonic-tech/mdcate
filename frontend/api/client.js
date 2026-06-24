@@ -56,6 +56,10 @@ client.interceptors.response.use(
 
     // 401 on a non-auth page → clear token, redirect to login
     if (status === 401 && typeof window !== "undefined") {
+      const notice = data?.message;
+      if (notice?.includes("another device")) {
+        sessionStorage.setItem("auth_notice", notice);
+      }
       removeToken();
       if (!window.location.pathname.startsWith("/auth")) {
         window.location.href = "/auth/login";

@@ -28,7 +28,7 @@ const paymentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "completed", "failed", "cancelled"],
+      enum: ["pending", "awaiting_review", "completed", "failed", "cancelled", "rejected"],
       default: "pending",
       index: true,
     },
@@ -55,6 +55,32 @@ const paymentSchema = new mongoose.Schema(
     },
     failureReason: {
       type: String,
+      default: null,
+    },
+    manualChannel: {
+      type: String,
+      enum: ["jazzcash", "easypaisa", "bank"],
+      default: null,
+    },
+    studentTxnReference: {
+      type: String,
+      default: null,
+    },
+    proofScreenshotUrl: {
+      type: String,
+      default: null,
+    },
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       default: null,
     },
   },

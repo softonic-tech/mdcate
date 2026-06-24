@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/providers/AuthProvider";
 import { getErrorMessage } from "@/lib/errors";
 import { Loader2 } from "lucide-react";
@@ -11,6 +11,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const notice = sessionStorage.getItem("auth_notice");
+    if (notice) {
+      setError(notice);
+      sessionStorage.removeItem("auth_notice");
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

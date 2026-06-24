@@ -1,0 +1,592 @@
+/* ============================================
+   Dashboard — full palette on every page
+   Cards rotate accent-1 … accent-6 (blue → cyan)
+   Tokens from theme.css only
+   ============================================ */
+
+/* ── Multi-colour page backdrop (all routes) ── */
+.dash-layout .dash-content {
+  position: relative;
+  isolation: isolate;
+}
+
+.dash-layout .dash-content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.75;
+  background:
+    radial-gradient(ellipse 70% 50% at 0% 0%, rgba(14, 165, 233, 0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 45% at 100% 15%, rgba(139, 92, 246, 0.12) 0%, transparent 52%),
+    radial-gradient(ellipse 55% 40% at 50% 100%, rgba(236, 72, 153, 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 38% at 85% 75%, rgba(20, 184, 166, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 35% at 15% 60%, rgba(99, 102, 241, 0.06) 0%, transparent 48%);
+}
+
+.dash-layout .dash-content > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── 6-colour cycle on grid / list children ── */
+.dash-layout :where(
+  .quick-grid,
+  .stats-grid,
+  .study-grid,
+  .book-grid,
+  .notes-grid,
+  .item-grid,
+  .data-list,
+  .profile-grid,
+  .billing-grid,
+  .vs-grid,
+  .vs-flash-grid,
+  .plan-list
+) > :nth-child(6n + 1) {
+  --card-accent: var(--accent-1);
+  --card-accent-soft: var(--accent-1-soft);
+}
+
+.dash-layout :where(
+  .quick-grid,
+  .stats-grid,
+  .study-grid,
+  .book-grid,
+  .notes-grid,
+  .item-grid,
+  .data-list,
+  .profile-grid,
+  .billing-grid,
+  .vs-grid,
+  .vs-flash-grid,
+  .plan-list
+) > :nth-child(6n + 2) {
+  --card-accent: var(--accent-2);
+  --card-accent-soft: var(--accent-2-soft);
+}
+
+.dash-layout :where(
+  .quick-grid,
+  .stats-grid,
+  .study-grid,
+  .book-grid,
+  .notes-grid,
+  .item-grid,
+  .data-list,
+  .profile-grid,
+  .billing-grid,
+  .vs-grid,
+  .vs-flash-grid,
+  .plan-list
+) > :nth-child(6n + 3) {
+  --card-accent: var(--accent-3);
+  --card-accent-soft: var(--accent-3-soft);
+}
+
+.dash-layout :where(
+  .quick-grid,
+  .stats-grid,
+  .study-grid,
+  .book-grid,
+  .notes-grid,
+  .item-grid,
+  .data-list,
+  .profile-grid,
+  .billing-grid,
+  .vs-grid,
+  .vs-flash-grid,
+  .plan-list
+) > :nth-child(6n + 4) {
+  --card-accent: var(--accent-4);
+  --card-accent-soft: var(--accent-4-soft);
+}
+
+.dash-layout :where(
+  .quick-grid,
+  .stats-grid,
+  .study-grid,
+  .book-grid,
+  .notes-grid,
+  .item-grid,
+  .data-list,
+  .profile-grid,
+  .billing-grid,
+  .vs-grid,
+  .vs-flash-grid,
+  .plan-list
+) > :nth-child(6n + 5) {
+  --card-accent: var(--accent-5);
+  --card-accent-soft: var(--accent-5-soft);
+}
+
+.dash-layout :where(
+  .quick-grid,
+  .stats-grid,
+  .study-grid,
+  .book-grid,
+  .notes-grid,
+  .item-grid,
+  .data-list,
+  .profile-grid,
+  .billing-grid,
+  .vs-grid,
+  .vs-flash-grid,
+  .plan-list
+) > :nth-child(6n + 6) {
+  --card-accent: var(--accent-6);
+  --card-accent-soft: var(--accent-6-soft);
+}
+
+/* Sequential cards in a flat stack (no grid wrapper) */
+.dash-layout .dash-content :is(.content-card, .panel, .note-card, .mcq-card):nth-of-type(6n + 1) {
+  --card-accent: var(--accent-1);
+  --card-accent-soft: var(--accent-1-soft);
+}
+.dash-layout .dash-content :is(.content-card, .panel, .note-card, .mcq-card):nth-of-type(6n + 2) {
+  --card-accent: var(--accent-2);
+  --card-accent-soft: var(--accent-2-soft);
+}
+.dash-layout .dash-content :is(.content-card, .panel, .note-card, .mcq-card):nth-of-type(6n + 3) {
+  --card-accent: var(--accent-3);
+  --card-accent-soft: var(--accent-3-soft);
+}
+.dash-layout .dash-content :is(.content-card, .panel, .note-card, .mcq-card):nth-of-type(6n + 4) {
+  --card-accent: var(--accent-4);
+  --card-accent-soft: var(--accent-4-soft);
+}
+.dash-layout .dash-content :is(.content-card, .panel, .note-card, .mcq-card):nth-of-type(6n + 5) {
+  --card-accent: var(--accent-5);
+  --card-accent-soft: var(--accent-5-soft);
+}
+.dash-layout .dash-content :is(.content-card, .panel, .note-card, .mcq-card):nth-of-type(6n + 6) {
+  --card-accent: var(--accent-6);
+  --card-accent-soft: var(--accent-6-soft);
+}
+
+/* ── Page header — rainbow gradient text ── */
+.dash-layout .page-head__title {
+  background: linear-gradient(
+    135deg,
+    var(--text-primary) 0%,
+    var(--accent-1) 28%,
+    var(--accent-3) 55%,
+    var(--accent-4) 78%,
+    var(--accent-5) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dash-layout .page-head__eyebrow {
+  color: var(--accent-2);
+  background: var(--accent-2-soft);
+  border: 1px solid color-mix(in srgb, var(--accent-2) 35%, transparent);
+}
+
+.dash-layout .section-title__heading::before {
+  background: var(--gradient-aurora);
+  width: 4px;
+  opacity: 1;
+}
+
+/* ── Cards & panels — each picks up --card-accent from parent/sibling cycle ── */
+.dash-layout :is(
+  .content-card,
+  .panel,
+  .glass-card,
+  .exam-card,
+  .item-card,
+  .note-card,
+  .data-row,
+  .mcq-card,
+  .profile-card,
+  .book-card,
+  .vs-panel,
+  .vs-card,
+  .vs-flash,
+  .vs-mcq,
+  .billing-plan,
+  .plan-card,
+  .study-page__filters,
+  .filter-bar
+) {
+  border-color: color-mix(in srgb, var(--card-accent, var(--accent-1)) 24%, var(--border-subtle));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--card-accent, var(--accent-1)) 9%, var(--surface-1)) 0%,
+    var(--surface-1) 58%
+  );
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.dash-layout :is(
+  .content-card,
+  .panel,
+  .exam-card,
+  .item-card,
+  .note-card,
+  .data-row,
+  .book-card,
+  .vs-card
+):hover {
+  border-color: color-mix(in srgb, var(--card-accent, var(--accent-1)) 48%, transparent);
+  box-shadow: 0 10px 32px color-mix(in srgb, var(--card-accent, var(--accent-1)) 20%, transparent);
+  transform: translateY(-2px);
+}
+
+.dash-layout :is(
+  .content-card,
+  .panel,
+  .item-card,
+  .note-card,
+  .data-row,
+  .profile-card,
+  .book-card,
+  .exam-card,
+  .vs-card,
+  .vs-flash,
+  .vs-mcq,
+  .billing-plan,
+  .plan-card
+) {
+  border-top: 3px solid var(--card-accent, var(--accent-1));
+}
+
+.dash-layout .profile-card {
+  border-left: 3px solid var(--card-accent, var(--accent-1));
+}
+
+.dash-layout .data-row {
+  border-left: 3px solid var(--card-accent, var(--accent-1));
+}
+
+.dash-layout .note-card {
+  border-left: 3px solid var(--card-accent, var(--accent-1));
+}
+
+.dash-layout .item-card::before,
+.dash-layout .book-card::before {
+  background: var(--card-accent, var(--accent-1));
+}
+
+.dash-layout .item-card:hover::before,
+.dash-layout .book-card:hover::before {
+  background: linear-gradient(90deg, var(--card-accent, var(--accent-1)), var(--accent-3));
+}
+
+.dash-layout .profile-card__icon {
+  background: var(--card-accent-soft, var(--accent-1-soft));
+  color: var(--card-accent, var(--accent-1));
+}
+
+/* ── Stats — each stat a different colour ── */
+.dash-layout .study-page__stat:nth-child(6n + 1) { --card-accent: var(--accent-1); --card-accent-soft: var(--accent-1-soft); }
+.dash-layout .study-page__stat:nth-child(6n + 2) { --card-accent: var(--accent-2); --card-accent-soft: var(--accent-2-soft); }
+.dash-layout .study-page__stat:nth-child(6n + 3) { --card-accent: var(--accent-3); --card-accent-soft: var(--accent-3-soft); }
+.dash-layout .study-page__stat:nth-child(6n + 4) { --card-accent: var(--accent-4); --card-accent-soft: var(--accent-4-soft); }
+.dash-layout .study-page__stat:nth-child(6n + 5) { --card-accent: var(--accent-5); --card-accent-soft: var(--accent-5-soft); }
+.dash-layout .study-page__stat:nth-child(6n + 6) { --card-accent: var(--accent-6); --card-accent-soft: var(--accent-6-soft); }
+
+.dash-layout .study-page__stat {
+  border-left: 3px solid var(--card-accent, var(--accent-1));
+  background: linear-gradient(90deg, var(--card-accent-soft, var(--accent-1-soft)) 0%, var(--surface-1) 42%);
+}
+
+.dash-layout .study-page__stat-value {
+  color: var(--card-accent, var(--accent-1));
+}
+
+.dash-layout .study-page__stat-bar-fill {
+  background: linear-gradient(90deg, var(--card-accent, var(--accent-1)), var(--accent-3));
+}
+
+.dash-layout .study-page__diff-pill--active,
+.dash-layout .study-page__page-dot--correct {
+  background: var(--card-accent-soft, var(--accent-1-soft));
+  border-color: var(--card-accent, var(--accent-1));
+  color: var(--card-accent, var(--accent-1));
+}
+
+/* ── Buttons & badges ── */
+.dash-layout .btn-primary {
+  background: var(--gradient-aurora);
+  color: var(--text-on-primary);
+  border: none;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--accent-3) 35%, transparent);
+}
+
+.dash-layout .btn-primary:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 8px 26px color-mix(in srgb, var(--accent-4) 40%, transparent);
+}
+
+.dash-layout .badge:not(.badge--dark):not(.badge--success):not(.badge--danger):not(.badge--neutral) {
+  background: var(--card-accent-soft, var(--accent-1-soft));
+  color: var(--card-accent, var(--accent-1));
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--accent-1)) 30%, transparent);
+}
+
+.dash-layout .btn-ghost:hover {
+  color: var(--card-accent, var(--accent-2));
+  border-color: color-mix(in srgb, var(--card-accent, var(--accent-2)) 35%, transparent);
+  background: var(--card-accent-soft, var(--accent-2-soft));
+}
+
+/* ── Welcome banner (home) — full spectrum ── */
+.dash-layout .welcome-banner::before {
+  background: var(--gradient-aurora);
+}
+
+.dash-layout .welcome-banner__icon {
+  background: var(--gradient-ocean);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent-1) 30%, transparent);
+}
+
+.dash-layout .welcome-banner__text h1 {
+  background: linear-gradient(
+    135deg,
+    var(--text-primary) 0%,
+    var(--accent-1) 25%,
+    var(--accent-3) 50%,
+    var(--accent-4) 75%,
+    var(--accent-5) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Video summarizer hero — all colours ── */
+.dash-layout .vs-hero {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent-5) 18%, var(--surface-1)) 0%,
+    color-mix(in srgb, var(--accent-1) 14%, var(--surface-1)) 30%,
+    color-mix(in srgb, var(--accent-3) 14%, var(--surface-1)) 62%,
+    color-mix(in srgb, var(--accent-4) 12%, var(--surface-1)) 100%
+  );
+  border-color: color-mix(in srgb, var(--accent-3) 28%, var(--border-subtle));
+}
+
+.dash-layout .vs-hero__badge {
+  background: var(--accent-3-soft);
+  color: var(--accent-3);
+  border: 1px solid color-mix(in srgb, var(--accent-3) 30%, transparent);
+}
+
+.dash-layout .vs-hero__content h1 {
+  background: linear-gradient(
+    135deg,
+    var(--text-primary) 0%,
+    var(--accent-1) 30%,
+    var(--accent-3) 60%,
+    var(--accent-4) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dash-layout .vs-hero__stats .vs-stat-pill:nth-child(1) {
+  --card-accent: var(--accent-5);
+  --card-accent-soft: var(--accent-5-soft);
+}
+
+.dash-layout .vs-hero__stats .vs-stat-pill:nth-child(2) {
+  --card-accent: var(--accent-1);
+  --card-accent-soft: var(--accent-1-soft);
+}
+
+.dash-layout .vs-hero__stats .vs-stat-pill:nth-child(3) {
+  --card-accent: var(--accent-3);
+  --card-accent-soft: var(--accent-3-soft);
+}
+
+.dash-layout .vs-stat-pill {
+  border-color: color-mix(in srgb, var(--card-accent, var(--accent-1)) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--card-accent, var(--accent-1)) 8%, var(--surface-1));
+}
+
+.dash-layout .vs-stat-pill svg {
+  color: var(--card-accent, var(--accent-1));
+}
+
+.dash-layout .vs-submit {
+  background: var(--gradient-aurora);
+  color: var(--text-on-primary);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--accent-3) 35%, transparent);
+}
+
+.dash-layout .vs-step__num:nth-child(1),
+.dash-layout .vs-steps .vs-step:nth-child(1) .vs-step__num { background: var(--gradient-teal); }
+.dash-layout .vs-steps .vs-step:nth-child(2) .vs-step__num { background: var(--gradient-ocean); }
+.dash-layout .vs-steps .vs-step:nth-child(3) .vs-step__num { background: var(--gradient-royal); }
+
+.dash-layout .vs-step__num {
+  color: var(--text-on-primary);
+}
+
+.dash-layout .vs-block:nth-of-type(3n + 1) h3 { color: var(--accent-1); }
+.dash-layout .vs-block:nth-of-type(3n + 2) h3 { color: var(--accent-3); }
+.dash-layout .vs-block:nth-of-type(3n + 3) h3 { color: var(--accent-5); }
+
+.dash-layout .vs-section-head h2 {
+  background: var(--gradient-aurora);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dash-layout .vs-card--active {
+  border-color: var(--card-accent, var(--accent-3));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--card-accent, var(--accent-3)) 35%, transparent);
+}
+
+.dash-layout .vs-mcq__btn:hover {
+  border-color: var(--card-accent, var(--accent-2));
+  color: var(--card-accent, var(--accent-2));
+}
+
+.dash-layout .vs-tip svg {
+  color: var(--accent-5);
+}
+
+/* ── Flashcards ── */
+.dash-layout .flashcard-review {
+  border-color: color-mix(in srgb, var(--accent-3) 30%, var(--border-subtle));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--accent-1) 8%, var(--surface-1)) 0%,
+    color-mix(in srgb, var(--accent-3) 8%, var(--surface-1)) 50%,
+    var(--surface-1) 100%
+  );
+}
+
+.dash-layout .flashcard-progress__dot:nth-child(6n + 1) { background: var(--accent-1); }
+.dash-layout .flashcard-progress__dot:nth-child(6n + 2) { background: var(--accent-2); }
+.dash-layout .flashcard-progress__dot:nth-child(6n + 3) { background: var(--accent-3); }
+.dash-layout .flashcard-progress__dot:nth-child(6n + 4) { background: var(--accent-4); }
+.dash-layout .flashcard-progress__dot:nth-child(6n + 5) { background: var(--accent-5); }
+.dash-layout .flashcard-progress__dot:nth-child(6n + 6) { background: var(--accent-6); }
+
+.dash-layout .flashcard-progress__dot--active {
+  box-shadow: 0 0 0 3px var(--accent-3-soft);
+  transform: scale(1.15);
+}
+
+/* ── Leaderboard podium (place modifiers set in study-platform.css) ── */
+
+/* ── Billing ── */
+.dash-layout .billing-plan--popular,
+.dash-layout .billing-plan--selected {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
+    var(--gradient-aurora) border-box;
+}
+
+.dash-layout .billing-plan__badge {
+  background: var(--gradient-aurora);
+  color: var(--text-on-primary);
+}
+
+.dash-layout .billing-provider--active {
+  border-color: var(--card-accent, var(--accent-2));
+  background: var(--card-accent-soft, var(--accent-2-soft));
+}
+
+.dash-layout .billing-providers .billing-provider:nth-child(1) {
+  --card-accent: var(--accent-1);
+  --card-accent-soft: var(--accent-1-soft);
+}
+
+.dash-layout .billing-providers .billing-provider:nth-child(2) {
+  --card-accent: var(--accent-5);
+  --card-accent-soft: var(--accent-5-soft);
+}
+
+/* ── Light mode ── */
+[data-theme="light"] .dash-layout .dash-content::before {
+  opacity: 0.45;
+}
+
+[data-theme="light"] .dash-layout .dash-header {
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.07);
+}
+
+[data-theme="light"] .dash-layout .dash-main::before {
+  background: var(--page-glass);
+  border-left-color: var(--shell-border);
+}
+
+[data-theme="light"] .dash-layout .page-head__title {
+  background: linear-gradient(
+    135deg,
+    var(--deep-navy) 0%,
+    var(--accent-1) 28%,
+    var(--accent-3) 55%,
+    var(--accent-4) 78%,
+    var(--accent-5) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+[data-theme="light"] .dash-layout .welcome-banner__text h1,
+[data-theme="light"] .dash-layout .vs-hero__content h1 {
+  background: linear-gradient(
+    135deg,
+    var(--deep-navy) 0%,
+    var(--accent-1) 30%,
+    var(--accent-3) 60%,
+    var(--accent-5) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+[data-theme="light"] .dash-layout :is(
+  .content-card,
+  .panel,
+  .exam-card,
+  .item-card,
+  .note-card,
+  .data-row,
+  .mcq-card,
+  .profile-card,
+  .book-card,
+  .vs-panel,
+  .vs-card,
+  .vs-flash,
+  .vs-mcq,
+  .billing-plan,
+  .study-page__filters
+) {
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--card-accent, var(--accent-1)) 6%, var(--bg-card)) 0%,
+    var(--bg-card) 62%
+  );
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .dash-layout .study-page__stat {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--card-accent, var(--accent-1)) 10%, var(--bg-card)) 0%,
+    var(--bg-card) 45%
+  );
+}
+
+[data-theme="light"] .dash-layout .vs-hero {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent-5) 10%, var(--bg-card)) 0%,
+    color-mix(in srgb, var(--accent-1) 8%, var(--bg-card)) 35%,
+    color-mix(in srgb, var(--accent-3) 8%, var(--bg-card)) 68%,
+    var(--bg-card) 100%
+  );
+}

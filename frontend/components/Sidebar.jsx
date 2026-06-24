@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   User,
@@ -25,60 +25,66 @@ import {
   CreditCard,
   X,
   LogOut,
+  GraduationCap,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { billingUpgradeUrl, hasActiveSubscription } from "@/lib/subscriptionAccess";
 
 const NAV_SECTIONS = [
   {
     label: "Main",
     items: [
-      { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Profile", href: "/dashboard/profile", icon: User },
+      { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, premium: false },
+      { name: "Profile", href: "/dashboard/profile", icon: User, premium: false },
     ],
   },
   {
     label: "Learning",
     items: [
-      { name: "MCQ Bank", href: "/dashboard/mcq-bank", icon: ClipboardList },
-      { name: "Tests", href: "/dashboard/tests", icon: FileText },
-      { name: "Past Papers", href: "/dashboard/past-papers", icon: BookOpen },
-      { name: "Books & Notes", href: "/dashboard/books", icon: BookOpen },
-      { name: "Chapter Videos", href: "/dashboard/chapter-videos", icon: PlayCircle },
-      { name: "Video Summarizer", href: "/dashboard/video-summarizer", icon: Video },
+      { name: "Start Learning", href: "/dashboard/learn", icon: GraduationCap, premium: true },
+      { name: "MCQ Bank", href: "/dashboard/mcq-bank", icon: ClipboardList, premium: true },
+      { name: "Tests", href: "/dashboard/tests", icon: FileText, premium: true },
+      { name: "Past Papers", href: "/dashboard/past-papers", icon: BookOpen, premium: true },
+      { name: "Books & Notes", href: "/dashboard/books", icon: BookOpen, premium: true },
+      { name: "Chapter Videos", href: "/dashboard/chapter-videos", icon: PlayCircle, premium: true },
+      { name: "Video Summarizer", href: "/dashboard/video-summarizer", icon: Video, premium: true },
     ],
   },
   {
     label: "Practice",
     items: [
-      { name: "Flashcards", href: "/dashboard/flashcards", icon: Layers },
-      { name: "Daily Challenges", href: "/dashboard/challenges", icon: CalendarCheck },
-      { name: "High-Yield Facts", href: "/dashboard/high-yield", icon: Zap },
-      { name: "Mnemonics", href: "/dashboard/mnemonics", icon: Lightbulb },
+      { name: "Flashcards", href: "/dashboard/flashcards", icon: Layers, premium: false },
+      { name: "Daily Challenges", href: "/dashboard/challenges", icon: CalendarCheck, premium: false },
+      { name: "High-Yield Facts", href: "/dashboard/high-yield", icon: Zap, premium: false },
+      { name: "Mnemonics", href: "/dashboard/mnemonics", icon: Lightbulb, premium: false },
     ],
   },
   {
     label: "Community",
     items: [
-      { name: "Discussion Room", href: "/dashboard/discussion", icon: MessageSquare },
-      { name: "Leaderboard", href: "/dashboard/leaderboard", icon: Award },
+      { name: "Discussion Room", href: "/dashboard/discussion", icon: MessageSquare, premium: false },
+      { name: "Leaderboard", href: "/dashboard/leaderboard", icon: Award, premium: false },
     ],
   },
   {
     label: "Tools",
     items: [
-      { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-      { name: "Offline Mode", href: "/dashboard/offline", icon: Download },
-      { name: "Study Plan", href: "/dashboard/study-plan", icon: CalendarCheck },
-      { name: "Notifications", href: "/dashboard/notifications", icon: Bell },
-      { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
-      { name: "Contact Us", href: "/dashboard/contact", icon: HelpCircle },
+      { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, premium: false },
+      { name: "Offline Mode", href: "/dashboard/offline", icon: Download, premium: false },
+      { name: "Study Plan", href: "/dashboard/study-plan", icon: CalendarCheck, premium: false },
+      { name: "Notifications", href: "/dashboard/notifications", icon: Bell, premium: false },
+      { name: "Billing", href: "/dashboard/billing", icon: CreditCard, premium: false },
+      { name: "Contact Us", href: "/dashboard/contact", icon: HelpCircle, premium: false },
     ],
   },
 ];
 
 function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const subscribed = hasActiveSubscription(user);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -91,9 +97,16 @@ function Sidebar({ isOpen, onClose }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
 
-  const handleNavClick = useCallback(() => {
-    if (window.matchMedia("(max-width: 1023px)").matches) onClose();
-  }, [onClose]);
+  const handleNavClick = useCallback(
+    (item) => (e) => {
+      if (item.premium && !subscribed) {
+        e.preventDefault();
+        router.push(billingUpgradeUrl());
+      }
+      if (window.matchMedia("(max-width: 1023px)").matches) onClose();
+    },
+    [subscribed, router, onClose]
+  );
 
   return (
     <>
@@ -110,9 +123,8 @@ function Sidebar({ isOpen, onClose }) {
         id="dash-sidebar"
         aria-label="Main navigation"
       >
-        {/* Logo */}
         <div className="sidebar__logo">
-          <Link href="/dashboard" className="sidebar__logo-link" onClick={handleNavClick}>
+          <Link href="/dashboard" className="sidebar__logo-link" onClick={() => onClose()}>
             <div className="sidebar__logo-icon">
               <video autoPlay muted loop playsInline className="sidebar__logo-video">
                 <source src="/logo.mp4" type="video/mp4" />
@@ -127,7 +139,6 @@ function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="sidebar__nav">
           {NAV_SECTIONS.map((section) => (
             <div key={section.label} className="sidebar__section">
@@ -137,16 +148,18 @@ function Sidebar({ isOpen, onClose }) {
                 const isActive =
                   pathname === item.href ||
                   (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                const locked = item.premium && !subscribed;
 
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`sidebar__link ${isActive ? "sidebar__link--active" : ""}`}
-                    onClick={handleNavClick}
+                    className={`sidebar__link ${isActive ? "sidebar__link--active" : ""} ${locked ? "sidebar__link--locked" : ""}`}
+                    onClick={handleNavClick(item)}
                   >
                     <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
                     <span>{item.name}</span>
+                    {locked && <Lock size={14} className="sidebar__link-lock" aria-hidden="true" />}
                   </Link>
                 );
               })}
@@ -154,7 +167,6 @@ function Sidebar({ isOpen, onClose }) {
           ))}
         </nav>
 
-        {/* Logout */}
         <div className="sidebar__footer">
           <button className="sidebar__logout" onClick={logout}>
             <LogOut size={18} />

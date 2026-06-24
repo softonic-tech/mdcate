@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProfileProvider } from "@/context/ProfileContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { Toaster } from "react-hot-toast";
 
 function Providers({ children }) {
@@ -11,9 +12,11 @@ function Providers({ children }) {
     <GoogleOAuthProvider
       clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}
     >
-      <AuthProvider>
-        <ProfileProvider>{children}</ProfileProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <ProfileProvider>{children}</ProfileProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </GoogleOAuthProvider>
   );
 }
@@ -37,9 +40,9 @@ export default function ClientLayout({ children }) {
           toastOptions={{
             duration: 3000,
             style: {
-              background: "var(--navy)",
-              color: "var(--cloud)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background: "var(--bg-card)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border-medium)",
               fontSize: "14px",
             },
             success: {

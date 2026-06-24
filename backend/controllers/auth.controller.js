@@ -1,6 +1,5 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
-import { generateToken, generateRefreshToken } from "../utils/generateToken.js";
 import env from "../config/env.config.js";
 import {
   signupService,
@@ -13,6 +12,7 @@ import {
   findOrCreateFacebookUser,
   safeUserData,
 } from "../services/auth.service.js";
+import { issueAuthTokens, invalidateUserSession } from "../services/session.service.js";
 import { syncSubscriptionStatus } from "../services/payment.service.js";
 
 export const signup = asyncHandler(async (req, res) => {
@@ -21,10 +21,8 @@ export const signup = asyncHandler(async (req, res) => {
 });
 
 export const login = asyncHandler(async (req, res) => {
-  console.log("here");
   const user = await loginService(req.body);
-  const token = generateToken(user._id);
-  const refreshToken = generateRefreshToken(user._id);
+  const { token, refreshToken } = await issueAuthTokens(user);
 
   res.cookie("token", token, {
     httpOnly: true,
@@ -87,7 +85,8 @@ export const googleCallback = asyncHandler(async (req, res) => {
 
   if (!tokenRes.id_token) throw ApiError.unauthorized("Google authentication failed");
 
-  const { user, token } = await googleAuthService(tokenRes.id_token);
+  const user = await googleAuthService(tokenRes.id_token);
+  const { token } = await issueAuthTokens(user);
   const dashboardPath = user.role === "admin" ? "/admin/dashboard" : "/dashboard";
   res.redirect(`${env.FRONTEND_URL}${dashboardPath}?token=${token}`);
 });
@@ -110,12 +109,13 @@ export const facebookCallback = asyncHandler(async (req, res) => {
   if (!profile.email) throw ApiError.badRequest("Facebook email permission is required");
 
   const user = await findOrCreateFacebookUser(profile);
-  const token = generateToken(user._id);
+  const { token } = await issueAuthTokens(user);
   const dashboardPath = user.role === "admin" ? "/admin/dashboard" : "/dashboard";
   res.redirect(`${env.FRONTEND_URL}${dashboardPath}?token=${token}`);
 });
 
-export const logout = asyncHandler(async (_req, res) => {
+export const logout = asyncHandler(async (req, res) => {
+  await invalidateUserSession(req.user);
   res.cookie("token", "", { httpOnly: true, expires: new Date(0) });
   res.status(200).json({ success: true, message: "Logged out successfully" });
 });

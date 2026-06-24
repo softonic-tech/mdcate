@@ -45,6 +45,7 @@ export default function PastPapersPage() {
 
   const [subjects, setSubjects] = useState([]);
   const [subjectFilter, setSubjectFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
   const [secondsLeft, setSecondsLeft] = useState(null);
   const latestAttempt = useRef({ active: null, answers: {} });
   latestAttempt.current = { active, answers };
@@ -90,9 +91,24 @@ const loadData = async () => {
         : String(p.subjectId?._id || p.subjectId) ===
           String(subjectFilter);
 
-    return titleMatch && subjectMatch;
+    const yearMatch =
+      yearFilter === "all"
+        ? true
+        : String(p.paperYear || "") === String(yearFilter);
+
+    return titleMatch && subjectMatch && yearMatch;
   });
-}, [papers, query, subjectFilter]);
+}, [papers, query, subjectFilter, yearFilter]);
+
+  const availableYears = useMemo(() => {
+    const years = papers
+      .map((p) => p.paperYear)
+      .filter(Boolean);
+    return [...new Set(years)].sort((a, b) => b - a);
+  }, [papers]);
+
+  const questionCount = (paper) =>
+    paper.questions?.length || paper.questionCount || 0;
 
   // ================= START TEST =================
   const start = async (paper) => {
@@ -265,6 +281,11 @@ const loadData = async () => {
           {active.title}
         </h1>
 
+        <p className="exam-session__hint">
+          {qs.length} MCQs
+          {active.paperYear ? ` · ${active.paperYear}` : ""}
+        </p>
+
         {hasLimit && (
           <div className="exam-timer-bar">
             <span className="exam-timer-bar__meta">
@@ -327,11 +348,13 @@ const loadData = async () => {
     );
   }
 
-  const hasActiveFilters = Boolean(query.trim()) || subjectFilter !== "all";
+  const hasActiveFilters =
+    Boolean(query.trim()) || subjectFilter !== "all" || yearFilter !== "all";
 
   const clearFilters = () => {
     clearQuery();
     setSubjectFilter("all");
+    setYearFilter("all");
   };
 
   // ================= MAIN =================
@@ -357,6 +380,20 @@ const loadData = async () => {
               ))}
             </select>
           </FilterField>
+          {availableYears.length > 0 && (
+            <FilterField label="Year" icon={BookOpen}>
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                aria-label="Year"
+              >
+                <option value="all">All years</option>
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </FilterField>
+          )}
         </FilterRow>
       </FilterPanel>
 
@@ -385,11 +422,18 @@ const loadData = async () => {
                 <div className="item-card__body">
                 <header className="item-card__head">
                   <h3 className="item-card__head-title">{p.title}</h3>
-                  {old && <span className="badge badge--success">Solved</span>}
+                  <div className="flex gap-2">
+                    {p.paperYear && (
+                      <span className="badge badge--dark">{p.paperYear}</span>
+                    )}
+                    {old && <span className="badge badge--success">Solved</span>}
+                  </div>
                 </header>
 
                 <p className="item-card__meta">
-                  {p.questions?.length || 0} questions
+                  {questionCount(p)} MCQs
+                  {p.duration ? ` · ${p.duration} min` : ""}
+                  {p.subjectId?.name ? ` · ${p.subjectId.name}` : ""}
                 </p>
 
                 {old ? (

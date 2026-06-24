@@ -34,8 +34,8 @@ const testSchema = new mongoose.Schema(
     ],
     questionCount: {
       type: Number,
-      enum: [1,5 ,10, 30, 50, 100],
       default: 30,
+      min: [1, "Question count must be at least 1"],
     },
     paperYear: {
       type: Number,

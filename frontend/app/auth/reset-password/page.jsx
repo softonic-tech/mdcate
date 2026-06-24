@@ -8,7 +8,7 @@ import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import styles from "@/styles/auth.module.css";
+import ThemeToggle from "@/components/ThemeToggle";
 import { resetPasswordApi } from "@/api/auth.api";
 
 const schema = Yup.object({
@@ -53,73 +53,93 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.videoBg}>
-        <video autoPlay muted loop playsInline poster="/images/hero-poster.jpg" className={styles.video}>
+    <div className="auth-page">
+      <div className="auth-video-bg">
+        <video autoPlay muted loop playsInline poster="/images/hero-poster.jpg" className="auth-video">
           <source src="/videos/hero-bg.mp4" type="video/mp4" />
         </video>
-        <div className={styles.videoOverlay} />
+        <div className="auth-video-overlay" />
       </div>
 
-      <div className={styles.particles}>
-        <div className={`${styles.particle} ${styles.particle1}`} />
-        <div className={`${styles.particle} ${styles.particle2}`} />
-        <div className={`${styles.particle} ${styles.particle3}`} />
-        <div className={`${styles.particle} ${styles.particle4}`} />
+      <div className="auth-particles">
+        <div className="auth-particle auth-particle--1" />
+        <div className="auth-particle auth-particle--2" />
+        <div className="auth-particle auth-particle--3" />
+        <div className="auth-particle auth-particle--4" />
       </div>
 
-      <Link href="/" className={styles.backToHome}>
+      <Link href="/" className="auth-back-home">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M15 10H5m0 0l4-4m-4 4l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
         Back to Home
       </Link>
 
-      <div className={styles.card}>
-        <div className={styles.left}>
-          <h2 className={styles.heading}>Reset Password</h2>
+      <div className="auth-theme-toggle">
+        <ThemeToggle className="theme-toggle--navbar" size={18} />
+      </div>
+
+      <div className="auth-card">
+        <div className="auth-card__left">
+          <h2 className="auth-heading">Reset Password</h2>
 
           <form onSubmit={handleSubmit(onSubmit)}>
-            <div className={styles.passwordBox}>
+            <div className="auth-password-box">
               <input
                 type={showPass ? "text" : "password"}
-                className={styles.input}
+                className="auth-input"
                 placeholder="New Password"
                 {...register("password")}
               />
-              <span className={styles.eye} onClick={() => setShowPass(!showPass)}>
+              <span className="auth-eye" onClick={() => setShowPass(!showPass)}>
                 {showPass ? <AiOutlineEye /> : <AiOutlineEyeInvisible />}
               </span>
             </div>
-            {errors.password && <p className={styles.error}>{errors.password.message}</p>}
+            {errors.password && <p className="auth-error">{errors.password.message}</p>}
 
-            <div className={styles.passwordBox}>
+            <div className="auth-password-box">
               <input
                 type={showConfirmPass ? "text" : "password"}
-                className={styles.input}
+                className="auth-input"
                 placeholder="Confirm Password"
                 {...register("confirmPassword")}
               />
-              <span className={styles.eye} onClick={() => setShowConfirmPass(!showConfirmPass)}>
+              <span className="auth-eye" onClick={() => setShowConfirmPass(!showConfirmPass)}>
                 {showConfirmPass ? <AiOutlineEye /> : <AiOutlineEyeInvisible />}
               </span>
             </div>
-            {errors.confirmPassword && <p className={styles.error}>{errors.confirmPassword.message}</p>}
+            {errors.confirmPassword && <p className="auth-error">{errors.confirmPassword.message}</p>}
 
-            <button type="submit" className={styles.button} disabled={loading}>
+            <button type="submit" className="auth-button" disabled={loading}>
               {loading ? "Resetting..." : "Reset Password"}
             </button>
           </form>
 
-          {success && <p className={styles.success}>{success}</p>}
+          {success && <p className="auth-success">{success}</p>}
 
-          <p className={styles.link}>
+          <p className="auth-link">
             <Link href="/auth/login">← Back to Login</Link>
           </p>
         </div>
 
-        <div className={styles.right}>
-          <img src="/right-side.jpg" alt="medprep.study" className={styles.rightImage} />
+        <div className="auth-card__right">
+          <img src="/right-side.jpg" alt="medprep.study" className="auth-card__image" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResetPasswordFallback() {
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-card__left">
+          <h2 className="auth-heading">Reset Password</h2>
+          <p className="auth-link">Loading...</p>
+        </div>
+        <div className="auth-card__right">
+          <img src="/right-side.jpg" alt="medprep.study" className="auth-card__image" />
         </div>
       </div>
     </div>
@@ -128,21 +148,7 @@ function ResetPasswordForm() {
 
 export default function ResetPassword() {
   return (
-    <Suspense
-      fallback={
-        <div className={styles.container}>
-          <div className={styles.card}>
-            <div className={styles.left}>
-              <h2 className={styles.heading}>Reset Password</h2>
-              <p style={{ color: "#CBD5E1", textAlign: "center" }}>Loading...</p>
-            </div>
-            <div className={styles.right}>
-              <img src="/right-side.jpg" alt="medprep.study" className={styles.rightImage} />
-            </div>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<ResetPasswordFallback />}>
       <ResetPasswordForm />
     </Suspense>
   );
