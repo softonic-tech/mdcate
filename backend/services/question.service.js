@@ -43,6 +43,7 @@ export const bulkCreateQuestionsService = async (questions, { returnIds = false 
 
 export const getQuestionsService = async (filters) => {
   const query = {};
+  if (filters.search) query.text = { $regex: filters.search, $options: "i" };
   if (filters.subjectId) query.subjectId = filters.subjectId;
   if (filters.chapterId) query.chapterId = filters.chapterId;
   if (filters.difficulty) query.difficulty = filters.difficulty;

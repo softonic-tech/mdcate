@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import DataTable from "@/components/tables/DataTable";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -8,7 +8,7 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import { FormInput, FormTextarea, FormSelect, FormCheckbox } from "@/components/forms/FormFields";
 import { questionHooks, subjectHooks, useChaptersBySubject, useBulkCreateQuestions, usePreviewMcqImport, useConfirmMcqImport } from "@/hooks/useResource";
 import useForm from "@/hooks/useForm";
-import { Plus, Upload, X } from "lucide-react";
+import { Plus, Upload, X, Search, Filter } from "lucide-react";
 import { getName, formatDate, truncate } from "@/lib/utils";
 import { DIFFICULTIES } from "@/lib/constants";
 
@@ -23,14 +23,47 @@ export default function QuestionsPage() {
   const [importChapterId, setImportChapterId] = useState("");
   const [importMode, setImportMode] = useState("auto");
   const [importPreview, setImportPreview] = useState(null);
+
+  // --- filters ---
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
+  const [filterChapter, setFilterChapter] = useState("");
+  const [filterDifficulty, setFilterDifficulty] = useState("");
+  const [filterPastPaper, setFilterPastPaper] = useState("");
   const [page, setPage] = useState(1);
+
+  // Debounce search by 400 ms
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const activeFilterCount = [filterSubject, filterChapter, filterDifficulty, filterPastPaper, search].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setFilterSubject("");
+    setFilterChapter("");
+    setFilterDifficulty("");
+    setFilterPastPaper("");
+    setPage(1);
+  };
 
   const questions = questionHooks.useList({
     page,
+    search: search || undefined,
     subjectId: filterSubject || undefined,
+    chapterId: filterChapter || undefined,
+    difficulty: filterDifficulty || undefined,
+    isPastPaper: filterPastPaper || undefined,
   });
   const subjects = subjectHooks.useList();
+  const filterChapters = useChaptersBySubject(filterSubject);
   const createMut = questionHooks.useCreate();
   const updateMut = questionHooks.useUpdate();
   const removeMut = questionHooks.useRemove();
@@ -46,10 +79,13 @@ export default function QuestionsPage() {
   });
 
   const [tagInput, setTagInput] = useState("");
-  const chapters = useChaptersBySubject(values.subjectId);
+  const formChapters = useChaptersBySubject(values.subjectId);
   const subjectOptions = (subjects.data?.data || []).map((s) => ({ value: s._id, label: `${s.name} (${s.board})` }));
-  const chapterOptions = (chapters.data?.data || []).map((c) => ({ value: c._id, label: c.name }));
+  const chapterOptions = (formChapters.data?.data || []).map((c) => ({ value: c._id, label: c.name }));
+  const filterChapterOptions = (filterChapters.data?.data || []).map((c) => ({ value: c._id, label: c.name }));
   const importChapterOptions = (importChapters.data?.data || []).map((c) => ({ value: c._id, label: c.name }));
+
+  const difficultyOptions = DIFFICULTIES.map((d) => ({ value: d, label: d.charAt(0).toUpperCase() + d.slice(1) }));
 
   const resetFileImport = () => {
     setImportFile(null);
@@ -140,9 +176,7 @@ export default function QuestionsPage() {
       await bulkMut.mutateAsync(Array.isArray(parsed) ? parsed : [parsed]);
       closeBulkModal();
     } catch (err) {
-      if (err instanceof SyntaxError) {
-        alert("Invalid JSON format");
-      }
+      if (err instanceof SyntaxError) alert("Invalid JSON format");
     }
   };
 
@@ -157,7 +191,7 @@ export default function QuestionsPage() {
   const diffVariant = { easy: "success", medium: "warning", hard: "danger" };
 
   const columns = [
-    { key: "text", label: "Question", render: (row) => <span title={row.text}>{truncate(row.text, 50)}</span> },
+    { key: "text", label: "Question", render: (row) => <span title={row.text}>{truncate(row.text, 60)}</span> },
     { key: "subjectId", label: "Subject", render: (row) => getName(row.subjectId) },
     { key: "chapterId", label: "Chapter", render: (row) => getName(row.chapterId) },
     {
@@ -193,17 +227,90 @@ export default function QuestionsPage() {
         </div>
       </div>
 
-      <div className="mb-4 max-w-sm">
-        <FormSelect
-          name="filterSubject"
-          value={filterSubject}
-          onChange={(e) => {
-            setFilterSubject(e.target.value);
-            setPage(1);
-          }}
-          options={subjectOptions}
-          placeholder="Filter by subject"
-        />
+      {/* Search + Filter bar */}
+      <div className="mb-4 space-y-3">
+        {/* Search */}
+        <div className="relative max-w-md">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search questions..."
+            className="input-base pl-9 w-full"
+          />
+          {searchInput && (
+            <button
+              onClick={() => setSearchInput("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Filter row */}
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="min-w-[180px]">
+            <FormSelect
+              name="filterSubject"
+              value={filterSubject}
+              onChange={(e) => {
+                setFilterSubject(e.target.value);
+                setFilterChapter("");
+                setPage(1);
+              }}
+              options={subjectOptions}
+              placeholder="All subjects"
+            />
+          </div>
+
+          <div className="min-w-[180px]">
+            <FormSelect
+              name="filterChapter"
+              value={filterChapter}
+              onChange={(e) => { setFilterChapter(e.target.value); setPage(1); }}
+              options={filterChapterOptions}
+              placeholder={filterSubject ? "All chapters" : "Select subject first"}
+              disabled={!filterSubject}
+            />
+          </div>
+
+          <div className="min-w-[140px]">
+            <FormSelect
+              name="filterDifficulty"
+              value={filterDifficulty}
+              onChange={(e) => { setFilterDifficulty(e.target.value); setPage(1); }}
+              options={difficultyOptions}
+              placeholder="All difficulties"
+            />
+          </div>
+
+          <div className="min-w-[140px]">
+            <FormSelect
+              name="filterPastPaper"
+              value={filterPastPaper}
+              onChange={(e) => { setFilterPastPaper(e.target.value); setPage(1); }}
+              options={[
+                { value: "true", label: "Past Paper only" },
+                { value: "false", label: "Non-past paper" },
+              ]}
+              placeholder="Past paper: all"
+            />
+          </div>
+
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="btn-ghost btn-sm text-text-muted flex items-center gap-1"
+            >
+              <X size={14} /> Clear filters
+              <span className="ml-1 bg-primary text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       <DataTable
@@ -294,18 +401,10 @@ export default function QuestionsPage() {
       {/* Bulk Import Modal */}
       <Modal open={bulkModal} onClose={closeBulkModal} title="Bulk Import Questions" size="xl">
         <div className="flex gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setBulkTab("file")}
-            className={bulkTab === "file" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
-          >
+          <button type="button" onClick={() => setBulkTab("file")} className={bulkTab === "file" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}>
             Word / PDF
           </button>
-          <button
-            type="button"
-            onClick={() => setBulkTab("json")}
-            className={bulkTab === "json" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
-          >
+          <button type="button" onClick={() => setBulkTab("json")} className={bulkTab === "json" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}>
             JSON
           </button>
         </div>
@@ -322,11 +421,7 @@ export default function QuestionsPage() {
                 label="Subject"
                 name="importSubjectId"
                 value={importSubjectId}
-                onChange={(e) => {
-                  setImportSubjectId(e.target.value);
-                  setImportChapterId("");
-                  setImportPreview(null);
-                }}
+                onChange={(e) => { setImportSubjectId(e.target.value); setImportChapterId(""); setImportPreview(null); }}
                 options={subjectOptions}
                 placeholder="Select subject"
               />
@@ -334,10 +429,7 @@ export default function QuestionsPage() {
                 label="Chapter"
                 name="importChapterId"
                 value={importChapterId}
-                onChange={(e) => {
-                  setImportChapterId(e.target.value);
-                  setImportPreview(null);
-                }}
+                onChange={(e) => { setImportChapterId(e.target.value); setImportPreview(null); }}
                 options={importChapterOptions}
                 placeholder={importSubjectId ? "Select chapter" : "Select subject first"}
               />
@@ -347,10 +439,7 @@ export default function QuestionsPage() {
               label="Import mode"
               name="importMode"
               value={importMode}
-              onChange={(e) => {
-                setImportMode(e.target.value);
-                setImportPreview(null);
-              }}
+              onChange={(e) => { setImportMode(e.target.value); setImportPreview(null); }}
               options={[
                 { value: "auto", label: "Auto (structured first, AI fallback)" },
                 { value: "structured", label: "Structured template only" },
@@ -363,10 +452,7 @@ export default function QuestionsPage() {
               <input
                 type="file"
                 accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                onChange={(e) => {
-                  setImportFile(e.target.files?.[0] || null);
-                  setImportPreview(null);
-                }}
+                onChange={(e) => { setImportFile(e.target.files?.[0] || null); setImportPreview(null); }}
                 className="input-base w-full"
               />
               <p className="text-xs text-text-muted mt-1">
@@ -405,24 +491,12 @@ export default function QuestionsPage() {
             <div className="flex justify-end gap-3 pt-4 border-t border-border">
               <button type="button" onClick={closeBulkModal} className="btn-secondary btn-sm">Cancel</button>
               {!importPreview ? (
-                <button
-                  type="button"
-                  onClick={handlePreviewImport}
-                  disabled={previewMut.isPending}
-                  className="btn-primary btn-sm"
-                >
+                <button type="button" onClick={handlePreviewImport} disabled={previewMut.isPending} className="btn-primary btn-sm">
                   {previewMut.isPending ? "Parsing..." : "Preview import"}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleConfirmImport}
-                  disabled={confirmImportMut.isPending}
-                  className="btn-primary btn-sm"
-                >
-                  {confirmImportMut.isPending
-                    ? "Importing..."
-                    : `Import ${importPreview.previewCount} questions`}
+                <button type="button" onClick={handleConfirmImport} disabled={confirmImportMut.isPending} className="btn-primary btn-sm">
+                  {confirmImportMut.isPending ? "Importing..." : `Import ${importPreview.previewCount} questions`}
                 </button>
               )}
             </div>
