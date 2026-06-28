@@ -2367,6 +2367,33 @@ button {
   align-items: start;
 }
 
+.vs-layout > aside {
+  position: sticky;
+  top: calc(var(--shell-bar-height, 64px) + var(--space-xl, 32px));
+}
+
+.vs-library-scroll {
+  max-height: calc(100vh - var(--shell-bar-height, 64px) - 140px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-medium) transparent;
+}
+
+.vs-library-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.vs-library-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.vs-library-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 99px;
+}
+
 @media (max-width: 1024px) {
   .vs-layout {
     grid-template-columns: 1fr;
@@ -2703,6 +2730,59 @@ button {
   color: var(--graphite);
   max-width: 360px;
   margin: 0 auto;
+}
+
+.vs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.vs-pagination__info {
+  font-size: 13px;
+  color: var(--graphite);
+  white-space: nowrap;
+}
+
+.vs-pagination__controls {
+  display: flex;
+  gap: 6px;
+}
+
+.vs-pagination__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-medium);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+}
+
+.vs-pagination__btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.vs-pagination__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.vs-pagination__btn--active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-on-primary);
 }
 
 .vs-detail {

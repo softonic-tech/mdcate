@@ -20,12 +20,13 @@ export const previewPastPaperImport = asyncHandler(async (req, res) => {
 });
 
 export const confirmPastPaperImport = asyncHandler(async (req, res) => {
-  const { questions, title, paperYear, duration } = req.body;
+  const { questions, title, paperYear, duration, defaultSubjectId } = req.body;
   const data = await importService.confirmPastPaperImport({
     questions,
     title,
     paperYear,
     duration,
+    defaultSubjectId,
     createdBy: req.user._id,
   });
   res.status(201).json({ success: true, data });

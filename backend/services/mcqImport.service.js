@@ -150,10 +150,11 @@ const getOrCreatePastPaperChapter = async (subjectId) => {
   });
 };
 
-/** Map paper sections (BIOLOGY, PHYSICS, …) → subject + shared Past Papers chapter. */
+/** Map paper sections (BIOLOGY, PHYSICS, …) → subject + shared Past Papers chapter.
+ *  Returns { mapping, unmatched } — never throws. Unmatched sections are skipped. */
 export const resolvePastPaperSectionMapping = async (sections = []) => {
   if (!sections.length) {
-    throw ApiError.badRequest("No subject sections detected in this file.");
+    return { mapping: {}, unmatched: [] };
   }
 
   const subjects = await Subject.find().lean();
@@ -175,13 +176,7 @@ export const resolvePastPaperSectionMapping = async (sections = []) => {
     };
   }
 
-  if (unmatched.length) {
-    throw ApiError.badRequest(
-      `No matching subject in admin for: ${unmatched.join(", ")}. Add these subjects first.`
-    );
-  }
-
-  return mapping;
+  return { mapping, unmatched };
 };
 
 // Split on question boundaries (Q1., Q2., ...) so chunks never tear a question
@@ -430,6 +425,7 @@ export const previewPastPaperImport = async ({ file, mode = "auto" }) => {
     sections = structured.sections || [];
     missingAnswerCount = structured.missingAnswerCount || 0;
     if (structured.format === "kmu_mdcat") method = "kmu_mdcat";
+    else if (structured.format === "mdcat_section") method = "mdcat_section";
   }
 
   const needsAi =
@@ -450,11 +446,15 @@ export const previewPastPaperImport = async ({ file, mode = "auto" }) => {
   let sectionMapping = {};
   let sectionPreview = sections;
 
+  let unmatchedSections = [];
   if (sections.length > 0) {
-    sectionMapping = await resolvePastPaperSectionMapping(sections);
+    const resolved = await resolvePastPaperSectionMapping(sections);
+    sectionMapping = resolved.mapping;
+    unmatchedSections = resolved.unmatched;
     sectionPreview = sections.map((section) => ({
       ...section,
       subjectName: sectionMapping[section.name]?.subjectName || null,
+      unmatched: resolved.unmatched.includes(section.name),
     }));
   }
 
@@ -470,6 +470,7 @@ export const previewPastPaperImport = async ({ file, mode = "auto" }) => {
     detectedTitle,
     sections: sectionPreview,
     sectionMapping,
+    unmatchedSections,
     missingAnswerCount,
     suggestedYear: yearFromTitle ? Number(yearFromTitle[1]) : null,
   };
@@ -481,6 +482,7 @@ export const confirmPastPaperImport = async ({
   paperYear,
   duration,
   createdBy,
+  defaultSubjectId,
 }) => {
   if (!title?.trim()) {
     throw ApiError.badRequest("Past paper title is required.");
@@ -498,7 +500,28 @@ export const confirmPastPaperImport = async ({
     count: questions.filter((q) => q.section === name).length,
   }));
 
-  const sectionMapping = await resolvePastPaperSectionMapping(sections);
+  let sectionMapping = {};
+
+  if (sections.length > 0) {
+    const resolved = await resolvePastPaperSectionMapping(sections);
+    sectionMapping = resolved.mapping;
+    // Unmatched sections are silently skipped — their questions will be filtered out below.
+  } else if (defaultSubjectId) {
+    // No sections detected (AI-parsed or non-KMU format) — use the selected subject.
+    const subject = await Subject.findById(defaultSubjectId).lean();
+    if (!subject) throw ApiError.notFound("Selected subject not found.");
+    const chapter = await getOrCreatePastPaperChapter(subject._id);
+    sectionMapping["GENERAL"] = {
+      subjectId: subject._id,
+      chapterId: chapter._id,
+      subjectName: subject.name,
+    };
+    questions = questions.map((q) => ({ ...q, section: q.section || "GENERAL" }));
+  } else {
+    throw ApiError.badRequest(
+      "No subject sections detected. Select a subject for this paper."
+    );
+  }
 
   const payload = prepareMcqImportPayload(questions, {
     sectionMapping,
@@ -515,7 +538,7 @@ export const confirmPastPaperImport = async ({
   );
 
   if (payload.length === 0) {
-    throw ApiError.badRequest("All parsed questions were invalid.");
+    throw ApiError.badRequest("All parsed questions were invalid or had unmatched sections.");
   }
 
   const result = await bulkCreateQuestionsService(payload, { returnIds: true });

@@ -11,6 +11,7 @@ import { getSubjectsApi } from "@/api/subject.api";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
+import { SkeletonItemCards } from "@/components/dashboard/Skeleton";
 import ConfirmDialog from "@/components/dashboard/ConfirmDialog";
 import { CustomSelect } from "@/components/dashboard/CustomSelect";
 import {
@@ -141,6 +142,7 @@ export default function MockTestsPage() {
   const { query, clearQuery } = usePageSearch("Search tests…");
   const [tests, setTests] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(null);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
@@ -160,6 +162,7 @@ export default function MockTestsPage() {
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const t = await getTestsApi();
       const s = await getSubjectsApi();
@@ -169,6 +172,8 @@ export default function MockTestsPage() {
       setAttempts(a?.data || []);
     } catch {
       toast.error("Failed to load tests");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -676,7 +681,9 @@ export default function MockTestsPage() {
         <ListMeta end={filteredTests.length} label={`test${filteredTests.length === 1 ? "" : "s"}`} />
       )}
 
-      {filteredTests.length === 0 ? (
+      {loading ? (
+        <SkeletonItemCards count={5} />
+      ) : filteredTests.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="No tests found"

@@ -22,6 +22,7 @@ import {
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
 import PaymentDetailsPanel from "@/components/billing/PaymentDetailsPanel";
+import { SkeletonBillingPlans, SkeletonBillingSettings } from "@/components/dashboard/Skeleton";
 
 const normalizePlans = (res) => {
   if (Array.isArray(res)) return res;
@@ -223,7 +224,7 @@ export default function BillingPage() {
 
       <section className="content-card content-card--spaced">
         {settingsLoading ? (
-          <p className="text-muted">Loading payment details…</p>
+          <SkeletonBillingSettings />
         ) : (
           <PaymentDetailsPanel
             settings={paymentSettings}
@@ -233,7 +234,7 @@ export default function BillingPage() {
       </section>
 
       {loading ? (
-        <p className="text-muted">Loading plans…</p>
+        <SkeletonBillingPlans count={3} />
       ) : plans.length === 0 ? (
         <EmptyState
           icon={CreditCard}

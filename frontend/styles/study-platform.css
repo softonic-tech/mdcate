@@ -1128,6 +1128,217 @@
   margin-bottom: 0;
 }
 
+/* ── Learn grid skeletons ─────────────────────────────────── */
+.skeleton-learn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.skeleton-learn-card {
+  padding: 1.25rem;
+  border-radius: 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-learn-card__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+}
+
+.skeleton-learn-card__title {
+  width: 68%;
+  height: 16px;
+}
+
+.skeleton-learn-card__board {
+  width: 44%;
+  height: 12px;
+}
+
+.skeleton-learn-card__stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 4px;
+}
+
+.skeleton-learn-card__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-learn-card__stat-val {
+  width: 38px;
+  height: 18px;
+}
+
+.skeleton-learn-card__stat-label {
+  width: 52px;
+  height: 10px;
+}
+
+.skeleton-learn-card__bar {
+  height: 6px;
+  border-radius: 999px;
+  width: 100%;
+}
+
+.skeleton-learn-card__cta {
+  width: 80px;
+  height: 12px;
+  margin-top: 4px;
+}
+
+/* ── Item-card list skeleton (past-papers, tests, challenges) ─ */
+.skeleton-item-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-item-card {
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-item-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.skeleton-item-card__title {
+  width: 55%;
+  height: 15px;
+}
+
+.skeleton-item-card__badge {
+  width: 52px;
+  height: 22px;
+  border-radius: 999px;
+}
+
+.skeleton-item-card__meta {
+  width: 78%;
+  height: 12px;
+}
+
+.skeleton-item-card__btn {
+  width: 100px;
+  height: 36px;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+/* ── Leaderboard skeleton ──────────────────────────────────── */
+.skeleton-podium {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.skeleton-podium__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.skeleton-podium__avatar {
+  border-radius: 50%;
+}
+
+.skeleton-podium__name {
+  height: 12px;
+  border-radius: 6px;
+}
+
+.skeleton-podium__pts {
+  height: 10px;
+  border-radius: 6px;
+}
+
+/* ── Billing plan skeletons ────────────────────────────────── */
+.skeleton-billing-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.skeleton-billing-plan {
+  padding: 1.5rem;
+  border-radius: 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-billing-plan__title {
+  width: 60%;
+  height: 18px;
+}
+
+.skeleton-billing-plan__price {
+  width: 45%;
+  height: 28px;
+}
+
+.skeleton-billing-plan__feature {
+  width: 100%;
+  height: 12px;
+}
+
+.skeleton-billing-plan__btn {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.skeleton-billing-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 1.25rem;
+  border-radius: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+}
+
+.skeleton-billing-settings__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.skeleton-billing-settings__label {
+  width: 40%;
+  height: 13px;
+}
+
+.skeleton-billing-settings__value {
+  width: 30%;
+  height: 13px;
+}
+
 .text-error {
   color: var(--danger);
   font-size: 14px;
