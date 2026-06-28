@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
+import { SkeletonItemCards } from "@/components/dashboard/Skeleton";
 import {
   FilterPanel,
   FilterField,
@@ -46,6 +47,7 @@ export default function PastPapersPage() {
   const [subjects, setSubjects] = useState([]);
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
   const [secondsLeft, setSecondsLeft] = useState(null);
   const latestAttempt = useRef({ active: null, answers: {} });
   latestAttempt.current = { active, answers };
@@ -54,19 +56,22 @@ export default function PastPapersPage() {
     loadData();
   }, []);
 
-const loadData = async () => {
-  try {
-    const p = await getTestsApi({ type: "pastPaper" });
-    const a = await getMyAttempts();
-    const s = await getSubjectsApi(); 
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const p = await getTestsApi({ type: "pastPaper" });
+      const a = await getMyAttempts();
+      const s = await getSubjectsApi();
 
-    setPapers(p?.data || []);
-    setAttempts(a?.data || []);
-    setSubjects(s?.data || s?.subjects || s || []);
-  } catch {
-    toast.error("Failed to load past papers");
-  }
-};
+      setPapers(p?.data || []);
+      setAttempts(a?.data || []);
+      setSubjects(s?.data || s?.subjects || s || []);
+    } catch {
+      toast.error("Failed to load past papers");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ================= MAP ATTEMPTS =================
   const attemptMap = useMemo(() => {
@@ -397,7 +402,9 @@ const loadData = async () => {
         </FilterRow>
       </FilterPanel>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <SkeletonItemCards count={5} />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={BookOpen}
           title="No papers found"
