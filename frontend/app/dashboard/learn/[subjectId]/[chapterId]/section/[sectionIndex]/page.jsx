@@ -13,6 +13,7 @@ import {
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
 import McqPracticeList from "@/components/dashboard/McqPracticeList";
+import { SkeletonMcqList } from "@/components/dashboard/Skeleton";
 import { StatStrip } from "@/components/dashboard/StudyPageUI";
 import { useAuth } from "@/context/AuthContext";
 import { getMcqsApi } from "@/api/mcq.api";
@@ -211,7 +212,7 @@ export default function LearnSectionPracticePage() {
   if (loading || authLoading) {
     return (
       <div className="page-shell study-page learn-page">
-        <p className="text-muted">Loading section…</p>
+        <SkeletonMcqList count={5} />
       </div>
     );
   }

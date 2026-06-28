@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Layers, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
+import { SkeletonLearnGrid } from "@/components/dashboard/Skeleton";
 import { useAuth } from "@/context/AuthContext";
 import { getLearnChaptersApi } from "@/api/learning.api";
 import { getSubjectVisual } from "@/lib/learn";
@@ -43,7 +44,7 @@ export default function LearnChaptersPage() {
       />
 
       {loading ? (
-        <p className="text-muted">Loading chapters…</p>
+        <SkeletonLearnGrid count={6} showStats={false} />
       ) : chapters.length === 0 ? (
         <EmptyState
           icon={Layers}
