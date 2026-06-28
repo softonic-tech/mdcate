@@ -7,6 +7,7 @@ import { Crown, Medal, Award, Trophy, User } from "lucide-react";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
 import { StatStrip, ListMeta } from "@/components/dashboard/StudyPageUI";
+import { SkeletonLeaderboard } from "@/components/dashboard/Skeleton";
 
 const PODIUM_SLOTS = [
   { userIndex: 1, rank: 2, place: "second", Icon: Medal, label: "2nd" },
@@ -93,7 +94,7 @@ export default function LeaderboardPage() {
       )}
 
       {loading ? (
-        <p className="text-muted">Loading rankings…</p>
+        <SkeletonLeaderboard />
       ) : top.length === 0 ? (
         <EmptyState
           icon={Trophy}

@@ -5,6 +5,7 @@ import {
   BookOpen,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   FileText,
   Layers,
   Link2,
@@ -85,6 +86,7 @@ const validateUrlInput = (rawUrl = "") => {
 const statusClass = (status) => `vs-status vs-status--${status || "pending"}`;
 
 const POLL_INTERVAL_MS = 4000;
+const PAGE_SIZE = 8;
 const isPending = (video) =>
   video?.status === "pending" || video?.status === "processing";
 
@@ -95,6 +97,7 @@ export default function VideoSummarizerPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [revealedAnswers, setRevealedAnswers] = useState({});
+  const [page, setPage] = useState(1);
 
   // Refs let the single stable poller read the latest state without recreating
   // the interval (or fighting useEffect dependency churn) on every refresh.
@@ -182,6 +185,7 @@ export default function VideoSummarizerPage() {
       await createVideo({ url: url.trim() });
       toast.success("Video submitted — your study pack is being generated.");
       setUrl("");
+      setPage(1);
       await loadVideos();
     } catch (error) {
       toast.error(error?.message || "Failed to submit video");
@@ -214,6 +218,9 @@ export default function VideoSummarizerPage() {
     }
     return STAGE_MESSAGES[video.processingStage] || STAGE_MESSAGES.queued;
   };
+
+  const totalPages = Math.ceil(videos.length / PAGE_SIZE);
+  const paginatedVideos = videos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="vs-page page-shell">
@@ -490,6 +497,7 @@ export default function VideoSummarizerPage() {
             </div>
           </div>
 
+          <div className="vs-library-scroll">
           {loading ? (
             <SkeletonVsCards count={4} />
           ) : videos.length === 0 ? (
@@ -499,29 +507,58 @@ export default function VideoSummarizerPage() {
               <p>Paste a lecture link on the left to generate your first AI study pack.</p>
             </div>
           ) : (
-            <div className="vs-grid">
-              {videos.map((video) => (
-                <button
-                  key={video._id}
-                  type="button"
-                  className={`vs-card ${selected?._id === video._id ? "vs-card--active" : ""}`}
-                  onClick={() => loadVideoDetails(video._id)}
-                >
-                  <div className="vs-card__top">
-                    <span className="vs-card__title">{video.title || "Untitled video"}</span>
-                    <span className={statusClass(video.status)}>{video.status}</span>
+            <>
+              <div className="vs-grid">
+                {paginatedVideos.map((video) => (
+                  <button
+                    key={video._id}
+                    type="button"
+                    className={`vs-card ${selected?._id === video._id ? "vs-card--active" : ""}`}
+                    onClick={() => loadVideoDetails(video._id)}
+                  >
+                    <div className="vs-card__top">
+                      <span className="vs-card__title">{video.title || "Untitled video"}</span>
+                      <span className={statusClass(video.status)}>{video.status}</span>
+                    </div>
+                    <p className="vs-card__url">{video.url}</p>
+                    {(video.status === "pending" || video.status === "processing") && (
+                      <p className="vs-card__progress">
+                        {STAGE_MESSAGES[video.processingStage] || STAGE_MESSAGES.queued}
+                      </p>
+                    )}
+                    {video.summary && <p className="vs-card__preview">{video.summary}</p>}
+                  </button>
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="vs-pagination">
+                  <span className="vs-pagination__info">
+                    Page {page} of {totalPages} · {videos.length} video{videos.length !== 1 ? "s" : ""}
+                  </span>
+                  <div className="vs-pagination__controls">
+                    <button
+                      type="button"
+                      className="vs-pagination__btn"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      <ChevronLeft size={14} /> Prev
+                    </button>
+                    <button
+                      type="button"
+                      className="vs-pagination__btn"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                    >
+                      Next <ChevronRight size={14} />
+                    </button>
                   </div>
-                  <p className="vs-card__url">{video.url}</p>
-                  {(video.status === "pending" || video.status === "processing") && (
-                    <p className="vs-card__progress">
-                      {STAGE_MESSAGES[video.processingStage] || STAGE_MESSAGES.queued}
-                    </p>
-                  )}
-                  {video.summary && <p className="vs-card__preview">{video.summary}</p>}
-                </button>
-              ))}
-            </div>
+                </div>
+              )}
+            </>
           )}
+          </div>
         </section>
       </div>
     </div>

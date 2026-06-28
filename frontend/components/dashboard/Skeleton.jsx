@@ -94,3 +94,112 @@ export const SkeletonVsCards = memo(function SkeletonVsCards({ count = 4, classN
     </div>
   );
 });
+
+// Learn subject / chapter grid skeleton
+export const SkeletonLearnGrid = memo(function SkeletonLearnGrid({ count = 6, showStats = true, className = "" }) {
+  return (
+    <div className={`skeleton-learn-grid ${className}`.trim()}>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="skeleton-learn-card">
+          <Skeleton className="skeleton-learn-card__icon" />
+          <Skeleton className="skeleton-learn-card__title" />
+          <Skeleton className="skeleton-learn-card__board" />
+          {showStats && (
+            <div className="skeleton-learn-card__stats">
+              {[0, 1].map((j) => (
+                <div key={j} className="skeleton-learn-card__stat">
+                  <Skeleton className="skeleton-learn-card__stat-val" />
+                  <Skeleton className="skeleton-learn-card__stat-label" />
+                </div>
+              ))}
+            </div>
+          )}
+          <Skeleton className="skeleton-learn-card__bar" />
+          <Skeleton className="skeleton-learn-card__cta" />
+        </div>
+      ))}
+    </div>
+  );
+});
+
+// Past-papers / tests / challenges item-card list skeleton
+export const SkeletonItemCards = memo(function SkeletonItemCards({ count = 5, className = "" }) {
+  return (
+    <div className={`skeleton-item-cards ${className}`.trim()}>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="skeleton-item-card">
+          <div className="skeleton-item-card__head">
+            <Skeleton className="skeleton-item-card__title" />
+            <Skeleton className="skeleton-item-card__badge" />
+          </div>
+          <Skeleton className="skeleton-item-card__meta" />
+          <Skeleton className="skeleton-item-card__btn" />
+        </div>
+      ))}
+    </div>
+  );
+});
+
+// Leaderboard skeleton: podium + list
+export const SkeletonLeaderboard = memo(function SkeletonLeaderboard({ className = "" }) {
+  const podiumSizes = [
+    { avatar: 64, name: 72, pts: 48 },
+    { avatar: 80, name: 88, pts: 56 },
+    { avatar: 64, name: 72, pts: 48 },
+  ];
+  return (
+    <div className={className || undefined}>
+      <div className="skeleton-podium">
+        {podiumSizes.map((s, i) => (
+          <div key={i} className="skeleton-podium__item">
+            <Skeleton
+              className="skeleton-podium__avatar"
+              style={{ width: s.avatar, height: s.avatar }}
+            />
+            <Skeleton
+              className="skeleton-podium__name"
+              style={{ width: s.name }}
+            />
+            <Skeleton
+              className="skeleton-podium__pts"
+              style={{ width: s.pts }}
+            />
+          </div>
+        ))}
+      </div>
+      <SkeletonListRows count={7} />
+    </div>
+  );
+});
+
+// Billing plans skeleton
+export const SkeletonBillingPlans = memo(function SkeletonBillingPlans({ count = 3, className = "" }) {
+  return (
+    <div className={`skeleton-billing-plans ${className}`.trim()}>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="skeleton-billing-plan">
+          <Skeleton className="skeleton-billing-plan__title" />
+          <Skeleton className="skeleton-billing-plan__price" />
+          {[0, 1, 2].map((j) => (
+            <Skeleton key={j} className="skeleton-billing-plan__feature" />
+          ))}
+          <Skeleton className="skeleton-billing-plan__btn" />
+        </div>
+      ))}
+    </div>
+  );
+});
+
+// Billing payment-settings skeleton (single block)
+export const SkeletonBillingSettings = memo(function SkeletonBillingSettings({ className = "" }) {
+  return (
+    <div className={`skeleton-billing-settings ${className}`.trim()}>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="skeleton-billing-settings__row">
+          <Skeleton className="skeleton-billing-settings__label" />
+          <Skeleton className="skeleton-billing-settings__value" />
+        </div>
+      ))}
+    </div>
+  );
+});

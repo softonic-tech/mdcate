@@ -8,6 +8,7 @@ import { createChallengeAttempt, getMyChallengeAttempts } from "@/api/challengeA
 import { CalendarCheck } from "lucide-react";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
+import { SkeletonItemCards } from "@/components/dashboard/Skeleton";
 import { FilterPills } from "@/components/dashboard/StudyPageUI";
 import Modal from "@/components/dashboard/Modal";
 
@@ -21,20 +22,28 @@ export default function ChallengesPage() {
   const [challenges, setChallenges] = useState([]);
   const [attempts, setAttempts] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
   const [activeTest, setActiveTest] = useState(null);
   const [answers, setAnswers] = useState({});
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
     const load = async () => {
-      const ch =
-        filter === "all"
-          ? await getChallenges({})
-          : await getChallenges({ type: filter });
-      const at = await getMyChallengeAttempts();
-      if (mounted) {
-        setChallenges(ch?.data || []);
-        setAttempts(at?.data || []);
+      try {
+        const ch =
+          filter === "all"
+            ? await getChallenges({})
+            : await getChallenges({ type: filter });
+        const at = await getMyChallengeAttempts();
+        if (mounted) {
+          setChallenges(ch?.data || []);
+          setAttempts(at?.data || []);
+        }
+      } catch {
+        toast.error("Failed to load challenges");
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
     load();
@@ -107,7 +116,9 @@ export default function ChallengesPage() {
         ariaLabel="Challenge type"
       />
 
-      {challenges.length === 0 ? (
+      {loading ? (
+        <SkeletonItemCards count={4} />
+      ) : challenges.length === 0 ? (
         <EmptyState
           icon={CalendarCheck}
           title="No challenges available"

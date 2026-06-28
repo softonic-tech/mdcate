@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { ListOrdered, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
+import { SkeletonLearnGrid } from "@/components/dashboard/Skeleton";
 import { StatStrip } from "@/components/dashboard/StudyPageUI";
 import { useAuth } from "@/context/AuthContext";
 import { getLearnSectionsApi } from "@/api/learning.api";
@@ -64,7 +65,7 @@ export default function LearnSectionsPage() {
       )}
 
       {loading ? (
-        <p className="text-muted">Loading sections…</p>
+        <SkeletonLearnGrid count={6} showStats={false} />
       ) : sections.length === 0 ? (
         <EmptyState
           icon={ListOrdered}

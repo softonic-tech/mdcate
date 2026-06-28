@@ -8,10 +8,11 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import { FormInput, FormSelect } from "@/components/forms/FormFields";
 import {
   testHooks,
+  subjectHooks,
   usePreviewPastPaperImport,
   useConfirmPastPaperImport,
 } from "@/hooks/useResource";
-import { Upload, ArrowRight } from "lucide-react";
+import { Upload, ArrowRight, AlertTriangle } from "lucide-react";
 import { getName, formatDate, truncate } from "@/lib/utils";
 
 export default function PastPapersPage() {
@@ -24,13 +25,18 @@ export default function PastPapersPage() {
   const [title, setTitle] = useState("");
   const [paperYear, setPaperYear] = useState("");
   const [duration, setDuration] = useState("210");
+  const [defaultSubjectId, setDefaultSubjectId] = useState("");
 
   const papers = testHooks.useList({ type: "pastPaper" });
+  const subjects = subjectHooks.useList();
   const removeMut = testHooks.useRemove();
   const previewMut = usePreviewPastPaperImport();
   const confirmMut = useConfirmPastPaperImport();
 
-  const previewSections = importPreview?.sections || [];
+  const subjectOptions = (subjects.data?.data || []).map((s) => ({
+    value: s._id,
+    label: s.name,
+  }));
 
   const resetImport = () => {
     setImportFile(null);
@@ -39,6 +45,7 @@ export default function PastPapersPage() {
     setTitle("");
     setPaperYear("");
     setDuration("210");
+    setDefaultSubjectId("");
   };
 
   const closeImport = () => {
@@ -67,9 +74,13 @@ export default function PastPapersPage() {
     } catch {}
   };
 
+  const previewSectionsDetected = (importPreview?.sections || []).length > 0;
+
   const handleConfirm = async () => {
     if (!importPreview?.questions?.length) return;
     if (!title.trim()) return alert("Enter a paper title");
+    if (!previewSectionsDetected && !defaultSubjectId)
+      return alert("No sections detected — select a subject for this paper.");
 
     try {
       await confirmMut.mutateAsync({
@@ -77,6 +88,7 @@ export default function PastPapersPage() {
         paperYear: paperYear ? Number(paperYear) : null,
         duration: duration ? Number(duration) : null,
         questions: importPreview.questions,
+        defaultSubjectId: previewSectionsDetected ? undefined : defaultSubjectId,
       });
       closeImport();
     } catch {}
@@ -235,30 +247,58 @@ export default function PastPapersPage() {
                 )}
               </div>
 
-              {previewSections.length > 0 && (
+              {(importPreview.sections || []).length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Detected sections (auto-matched)</p>
                   <div className="flex flex-col gap-2">
-                    {previewSections.map((section) => (
+                    {(importPreview.sections || []).map((section) => (
                       <div
                         key={section.name}
-                        className="flex flex-wrap items-center gap-2 text-sm border border-border rounded-lg px-3 py-2 bg-white"
+                        className={`flex flex-wrap items-center gap-2 text-sm border rounded-lg px-3 py-2 bg-white ${
+                          section.unmatched ? "border-warning/60" : "border-border"
+                        }`}
                       >
                         <span className="font-semibold">{section.name}</span>
                         <span className="text-text-muted">{section.count} MCQs</span>
-                        {section.subjectName && (
+                        {section.unmatched ? (
+                          <>
+                            <ArrowRight size={14} className="text-text-muted" />
+                            <StatusBadge variant="warning">no subject match — will be skipped</StatusBadge>
+                          </>
+                        ) : section.subjectName ? (
                           <>
                             <ArrowRight size={14} className="text-text-muted" />
                             <StatusBadge variant="success">{section.subjectName}</StatusBadge>
                           </>
-                        )}
+                        ) : null}
                       </div>
                     ))}
                   </div>
+                  {(importPreview.unmatchedSections || []).length > 0 && (
+                    <p className="text-xs text-warning flex items-center gap-1">
+                      <AlertTriangle size={12} />
+                      {importPreview.unmatchedSections.join(", ")} have no matching subject and will be skipped.
+                      Add those subjects in the Subjects section to import them.
+                    </p>
+                  )}
                   <p className="text-xs text-text-muted">
                     MCQs are stored under each subject&apos;s &quot;Past Papers&quot; bucket.
                     Chapters are not required for past paper uploads.
                   </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-text-secondary">
+                    No subject sections detected (non-KMU format or AI-parsed). Select a subject to assign all MCQs.
+                  </p>
+                  <FormSelect
+                    label="Assign all MCQs to subject"
+                    name="defaultSubjectId"
+                    value={defaultSubjectId}
+                    onChange={(e) => setDefaultSubjectId(e.target.value)}
+                    options={subjectOptions}
+                    required
+                  />
                 </div>
               )}
 
@@ -308,7 +348,11 @@ export default function PastPapersPage() {
               <button
                 type="button"
                 onClick={handleConfirm}
-                disabled={confirmMut.isPending || !title.trim()}
+                disabled={
+                  confirmMut.isPending ||
+                  !title.trim() ||
+                  (!previewSectionsDetected && !defaultSubjectId)
+                }
                 className="btn-primary btn-sm"
               >
                 {confirmMut.isPending
