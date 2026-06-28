@@ -721,9 +721,264 @@ export const parseKmuMdcatFormat = (rawText = "") => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MDCAT Section-Aware parser
+//
+// Handles the three PDF formats from KMU 2024, KMU 2023 Reconduct, ETEA 2023:
+//
+//   Format A (KMU 2024):
+//     BIOLOGY
+//     Q1. Question stem?
+//     a. Option A
+//     b. Option B
+//     Correct: b. Option B
+//     Optional explanation text...
+//
+//   Format B (KMU 2023 Reconduct):
+//     [BIOLOGY] Q001. Question stem?
+//     a. Opt A b. Opt B [Correct]
+//     c. Opt C d. Opt D
+//     Correct: b. Opt B
+//     Explanation: ...
+//
+//   Format C (ETEA 2023):
+//     CHEMISTRY Questions 1 – 54
+//     Q01. Question stem?
+//     A. Option A
+//     B. Option B
+//     Correct: B. Option B
+//     Explanation: ...
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MDCAT_Q_LINE = /^Q\s*(\d+)\.\s*(.*)$/i;
+const MDCAT_OPTION_LINE = /^([A-Ea-e])\.\s+(.+)$/;
+const MDCAT_ANSWER_LINE = /^(?:Answer|Correct)\s*:\s*(.+)$/i;
+const MDCAT_EXPLANATION_LINE = /^Explanation\s*:\s*(.*)$/i;
+const MDCAT_SECTION_RE = /^([A-Z][A-Z\s]{2,50})$/;
+const MDCAT_KNOWN_SECTIONS = new Set([
+  "BIOLOGY", "PHYSICS", "CHEMISTRY", "ENGLISH",
+  "LOGICAL REASONING", "ANALYTICAL REASONING", "MATHEMATICS", "MATH",
+]);
+
+const isMdcatSectionLine = (line) => {
+  const upper = String(line || "").toUpperCase().trim();
+  return MDCAT_KNOWN_SECTIONS.has(upper);
+};
+
+// Normalise raw PDF text into a clean, one-item-per-line representation.
+const normalizeMdcatPdfText = (rawText) => {
+  const lines = String(rawText || "").split(/\r?\n/);
+  const out = [];
+
+  for (const raw of lines) {
+    const line = raw.trim();
+
+    // Remove page markers
+    if (/^Page\s+\d+(\s*\/\s*\d+)?$/i.test(line)) continue;
+    if (/^--\s*\d+\s*of\s*\d+\s*--$/.test(line)) continue;
+
+    // "[SECTION] Q001. stem" → expand into section line + Q line
+    const inlineSection = line.match(/^\[([A-Z][A-Z\s]*)\]\s+(Q\s*\d+\..*)$/i);
+    if (inlineSection) {
+      out.push(inlineSection[1].trim().toUpperCase());
+      out.push(inlineSection[2].trim());
+      continue;
+    }
+
+    // "SECTION Questions 1 – 54" or "SECTION Questions N-M" → just "SECTION"
+    const sectionWithRange = line.match(/^([A-Z][A-Z\s]+[A-Z])\s+Questions?\s+[\d–—-]/i);
+    if (sectionWithRange) {
+      out.push(sectionWithRange[1].trim().toUpperCase());
+      continue;
+    }
+
+    // Split inline double-options: "a. Opt A b. Opt B [Correct]" → two lines
+    // Only split when the line STARTS with a letter+period
+    const inlineOpts = line.match(/^([A-Ea-e])\.\s+(.+?)\s+([B-Eb-e])\.\s+(.+)$/);
+    if (inlineOpts) {
+      out.push(`${inlineOpts[1]}. ${inlineOpts[2].replace(/\s*\[Correct\]/i, "").trim()}`);
+      out.push(`${inlineOpts[3]}. ${inlineOpts[4].replace(/\s*\[Correct\]/i, "").trim()}`);
+      continue;
+    }
+
+    // Strip stray [Correct] markers from single-option lines
+    out.push(line.replace(/\s*\[Correct\]/gi, ""));
+  }
+
+  return out.join("\n");
+};
+
+export const detectMdcatSectionFormat = (rawText = "") => {
+  const text = normalizeMdcatPdfText(rawText);
+  const lines = textToLines(text);
+  const qCount = lines.filter((l) => MDCAT_Q_LINE.test(l)).length;
+  const answerCount = lines.filter((l) => MDCAT_ANSWER_LINE.test(l)).length;
+  return qCount >= 5 && answerCount >= 3 && answerCount >= qCount * 0.5;
+};
+
+export const parseMdcatSectionFormat = (rawText = "") => {
+  const text = normalizeMdcatPdfText(rawText);
+  const lines = textToLines(text);
+  const questions = [];
+  const errors = [];
+  const sectionCounts = {};
+
+  let currentSection = "GENERAL";
+  let detectedTitle = "";
+  let titleCaptured = false;
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (!line) { i += 1; continue; }
+
+    // Detect section headers
+    if (isMdcatSectionLine(line) && !MDCAT_Q_LINE.test(line) && !MDCAT_OPTION_LINE.test(line)) {
+      currentSection = line.toUpperCase().trim();
+      sectionCounts[currentSection] = sectionCounts[currentSection] || 0;
+      i += 1;
+      continue;
+    }
+
+    // Capture title from first non-question, non-section line
+    if (!titleCaptured && !MDCAT_Q_LINE.test(line) && !MDCAT_OPTION_LINE.test(line)) {
+      detectedTitle = line.trim();
+      titleCaptured = true;
+      i += 1;
+      continue;
+    }
+
+    const qm = line.match(MDCAT_Q_LINE);
+    if (!qm) { i += 1; continue; }
+
+    const paperNumber = Number(qm[1]);
+    const stemParts = [];
+    if (qm[2].trim()) stemParts.push(qm[2].trim());
+    i += 1;
+
+    // Collect stem lines (continue until we see an option or answer)
+    while (i < lines.length) {
+      const next = lines[i];
+      if (!next) { i += 1; continue; }
+      if (MDCAT_Q_LINE.test(next) || MDCAT_OPTION_LINE.test(next) || MDCAT_ANSWER_LINE.test(next)) break;
+      stemParts.push(next);
+      i += 1;
+    }
+
+    // Collect options
+    const options = [];
+    while (i < lines.length) {
+      const next = lines[i];
+      if (!next) { i += 1; continue; }
+      if (MDCAT_Q_LINE.test(next) || MDCAT_ANSWER_LINE.test(next)) break;
+      const om = next.match(MDCAT_OPTION_LINE);
+      if (om) {
+        options.push({ letter: om[1].toUpperCase(), text: om[2].trim() });
+        i += 1;
+        continue;
+      }
+      // Wrap continuation of long option text
+      if (options.length > 0 && !isMdcatSectionLine(next)) {
+        options[options.length - 1].text += " " + next;
+        i += 1;
+        continue;
+      }
+      break;
+    }
+
+    if (options.length < 2) {
+      errors.push({ line: stemParts.join(" ").slice(0, 60), reason: `Q${paperNumber}: fewer than 2 options` });
+      continue;
+    }
+
+    // Skip blank lines before answer
+    while (i < lines.length && !lines[i]) i += 1;
+
+    // Read answer line (Correct: or Answer:)
+    const answer = { letter: null, text: "" };
+    if (i < lines.length && MDCAT_ANSWER_LINE.test(lines[i])) {
+      const am = lines[i].match(MDCAT_ANSWER_LINE);
+      const body = am[1].trim();
+      i += 1;
+      const prefix = body.match(/^([A-Ea-e])[.)]\s*(.*)$/);
+      if (prefix) {
+        answer.letter = prefix[1].toUpperCase();
+        answer.text = prefix[2].trim();
+      } else {
+        answer.text = body;
+      }
+    } else {
+      errors.push({ line: stemParts.join(" ").slice(0, 60), reason: `Q${paperNumber}: no answer line` });
+      continue;
+    }
+
+    const correctIndex = findCorrectIndex(options, answer);
+    if (correctIndex < 0) {
+      errors.push({ line: stemParts.join(" ").slice(0, 60), reason: `Q${paperNumber}: answer not matched to option` });
+      continue;
+    }
+
+    // Read optional explanation
+    while (i < lines.length && !lines[i]) i += 1;
+    let explanation = "";
+    if (i < lines.length && MDCAT_EXPLANATION_LINE.test(lines[i])) {
+      const em = lines[i].match(MDCAT_EXPLANATION_LINE);
+      explanation = (em[1] || "").trim();
+      i += 1;
+      // Collect continuation lines
+      while (i < lines.length) {
+        const next = lines[i];
+        if (!next) { i += 1; continue; }
+        if (MDCAT_Q_LINE.test(next) || isMdcatSectionLine(next)) break;
+        explanation += " " + next;
+        i += 1;
+      }
+    } else if (i < lines.length && !MDCAT_Q_LINE.test(lines[i]) && !isMdcatSectionLine(lines[i])) {
+      // Bare explanation (KMU 2024 style: no "Explanation:" prefix)
+      explanation = lines[i];
+      i += 1;
+    }
+
+    sectionCounts[currentSection] = (sectionCounts[currentSection] || 0) + 1;
+
+    questions.push({
+      text: stemParts.join(" ").trim(),
+      options: options.map((o) => o.text),
+      correctAnswer: correctIndex,
+      explanation: explanation.trim(),
+      difficulty: "medium",
+      tags: [currentSection],
+      section: currentSection,
+      paperNumber,
+      isPastPaper: true,
+      paperYear: null,
+    });
+  }
+
+  const sections = Object.entries(sectionCounts).map(([name, count]) => ({ name, count }));
+  const yearFromTitle = detectedTitle.match(/\b(20\d{2})\b/);
+
+  return {
+    questions,
+    errors,
+    detectedTitle,
+    sections,
+    missingAnswerCount: 0,
+    suggestedYear: yearFromTitle ? Number(yearFromTitle[1]) : null,
+    format: "mdcat_section",
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
 export const parseStructuredMcqs = (rawText = "") => {
+  // Try the MDCAT section-aware parser first (handles KMU/ETEA PDFs with Q<n>. + Correct:)
+  if (detectMdcatSectionFormat(rawText)) {
+    const mdcat = parseMdcatSectionFormat(rawText);
+    if (mdcat.questions.length > 0) return mdcat;
+  }
+
   if (detectKmuMdcatFormat(rawText)) {
     const kmu = parseKmuMdcatFormat(rawText);
     if (kmu.questions.length > 0) return kmu;

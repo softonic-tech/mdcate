@@ -5,6 +5,7 @@ import Link from "next/link";
 import { GraduationCap, ChevronRight, BookOpen } from "lucide-react";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EmptyState from "@/components/dashboard/EmptyState";
+import { SkeletonLearnGrid } from "@/components/dashboard/Skeleton";
 import { useAuth } from "@/context/AuthContext";
 import { getLearnSubjectsApi } from "@/api/learning.api";
 import { getSubjectVisual, normalizeList } from "@/lib/learn";
@@ -33,7 +34,7 @@ export default function LearnSubjectsPage() {
       />
 
       {loading ? (
-        <p className="text-muted">Loading subjects…</p>
+        <SkeletonLearnGrid count={6} />
       ) : subjects.length === 0 ? (
         <EmptyState
           icon={BookOpen}
